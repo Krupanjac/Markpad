@@ -185,6 +185,79 @@ fn void Renderer.draw_modal(Renderer* self, char* title, char* input_text)
 	rl::draw_text("Enter to Confirm, Esc to Cancel", x + 10, y + 90, 10, rl::GRAY);
 }
 
+fn void Renderer.draw_file_browser(Renderer* self, editor::FileBrowser* browser, char* title, char* input_text)
+{
+	int sw = rl::get_screen_width();
+	int sh = rl::get_screen_height();
+	
+	// Overlay
+	rl::draw_rectangle(0, 0, sw, sh, (rl::RLColor){ 0, 0, 0, 100 });
+	
+	int w = 600;
+	int h = 500;
+	int x = (sw / 2) - (w / 2);
+	int y = (sh / 2) - (h / 2);
+	
+	rl::draw_rectangle(x, y, w, h, rl::RAYWHITE);
+	rl::draw_rectangle_lines(x, y, w, h, rl::GRAY);
+	
+	// Title
+	rl::draw_text((ZString)title, x + 10, y + 10, 20, rl::BLACK);
+	rl::draw_text((ZString)&browser.current_directory, x + 10, y + 30, 10, rl::DARKGRAY);
+	
+	// File List Area
+	int list_y = y + 50;
+	int list_h = h - 100;
+	rl::draw_rectangle(x + 10, list_y, w - 20, list_h, rl::WHITE);
+	rl::draw_rectangle_lines(x + 10, list_y, w - 20, list_h, rl::LIGHTGRAY);
+	
+	// Draw Items
+	int item_h = 24;
+	int view_max = list_h / item_h;
+	int start_idx = browser.scroll_offset;
+	int count = browser.files.count;
+	
+	// Item 0 is always ".."
+	rl::draw_text(".. (Parent Directory)", x + 20, list_y + 5, 20, rl::BLUE);
+	
+	for (int i = 0; i < view_max; i++)
+	{
+		int idx = start_idx + i;
+		if (idx >= count) break;
+		
+		int render_y = list_y + ((i + 1) * item_h) + 5; // offset by 1 for ".."
+		
+		char* filename = browser.files.paths[idx];
+		bool is_sel = (idx == browser.selected_index);
+		
+		if (is_sel) {
+			rl::draw_rectangle(x + 12, render_y, w - 24, item_h, rl::SKYBLUE);
+		}
+		
+		rl::RLColor col = rl::BLACK;
+		// Determine valid full path to check if dir
+		// Making a temp buffer for path check
+		// Note provided browser.c3 doesn't have is_dir fully wired for list items yet without concat
+		// So we might just draw all as black for now or try to check
+		// Optimization: Just draw text
+		
+		rl::draw_text((ZString)filename, x + 20, render_y + 2, 20, col);
+	}
+	
+	// Input Box (for filename)
+	int input_y = y + h - 40;
+	rl::draw_rectangle(x + 10, input_y, w - 160, 30, rl::WHITE);
+	rl::draw_rectangle_lines(x + 10, input_y, w - 160, 30, rl::LIGHTGRAY);
+	rl::draw_text((ZString)input_text, x + 15, input_y + 5, 20, rl::BLACK);
+	
+	// Buttons
+	rl::draw_rectangle(x + w - 140, input_y, 60, 30, rl::LIGHTGRAY);
+	rl::draw_text("OK", x + w - 120, input_y + 5, 20, rl::BLACK);
+	
+	rl::draw_rectangle(x + w - 70, input_y, 60, 30, rl::LIGHTGRAY);
+	rl::draw_text("X", x + w - 50, input_y + 5, 20, rl::BLACK);
+}
+
 fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id)
 {
 	int start_x = 0;

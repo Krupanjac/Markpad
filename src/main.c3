@@ -12,13 +12,16 @@ fn int main(String[] args)
 	editor::State state;
 	state.init();
 	
+	editor::FileBrowser browser;
+	browser.init();
+	
 	gfx::Renderer renderer;
 	renderer.init();
 
 	io::printn("Markpad started...");
 
 	int active_menu = 0; // 0=None, 1=File, 2=Edit, 3=View, 4=Help
-	int active_modal = 0; // 0=None, 1=Open, 2=Save
+	int active_modal = 0; // 0=None, 1=Open, 2=Save, 3=Browser(Open), 4=Browser(Save)
 	
 	char[256] input_buf;
 	int input_len = 0;
@@ -41,7 +44,135 @@ fn int main(String[] args)
 
 		if (active_modal != 0)
 		{
-			// Modal Input
+			// Browser Logic
+			if (active_modal >= 3)
+			{
+				int mx = rl::get_mouse_x();
+				int my = rl::get_mouse_y();
+				int sw = rl::get_screen_width();
+				int sh = rl::get_screen_height();
+				int w = 600;
+				int h = 500;
+				int x = (sw / 2) - (w / 2);
+				int y = (sh / 2) - (h / 2);
+				int list_y = y + 50;
+				
+				// Handle clicks
+				if (rl::is_mouse_button_pressed(rl::RLMouseButton.LEFT))
+				{
+					// Close button logic? (Simple area check)
+					// X button
+					if (mx > x + w - 70 && mx < x + w - 10 && my > y + h - 40 && my < y + h - 10)
+					{
+						active_modal = 0;
+					}
+					// OK button
+					else if (mx > x + w - 140 && mx < x + w - 80 && my > y + h - 40 && my < y + h - 10)
+					{
+						// Submit
+						if (input_len > 0)
+						{
+							// Concat dir + filename
+							// Simplified for this demo
+							char[2048] full_path;
+							full_path[0] = 0;
+							
+							// Copy dir
+							usz dlen = 0; while (browser.current_directory[dlen] != 0) dlen++;
+							for(int i=0; i<dlen; i++) full_path[i] = browser.current_directory[i];
+							
+							// Copy file
+							for(int i=0; i<input_len; i++) full_path[dlen + i] = input_buf[i];
+							full_path[dlen + input_len] = 0;
+							
+							if (active_modal == 3) // Open
+							{
+								state.load_file((char*)&full_path);
+							}
+							else // Save
+							{
+								// Set state file
+								if (state.current_file) mem::free(state.current_file);
+								usz flen = dlen + (usz)input_len;
+								state.current_file = (char*)mem::alloc_array(char, flen + 1);
+								mem::copy(state.current_file, &full_path, flen + 1);
+								state.save_file();
+							}
+							active_modal = 0;
+						}
+					}
+					// List click
+					else if (mx > x + 10 && mx < x + w - 10 && my > list_y && my < list_y + h - 100)
+					{
+						int rel_y = my - list_y - 5; // header offset
+						int item_h = 24;
+						if (rel_y > 0)
+						{
+							int idx = (rel_y / item_h); // 0 is parent
+							int file_idx = idx - 1 + browser.scroll_offset;
+							
+							if (idx == 0) // clicked ".."
+							{
+								browser.up_dir();
+							}
+							else if (file_idx >= 0 && file_idx < browser.files.count)
+							{
+								browser.selected_index = file_idx;
+								// Check if dir
+								char* path = browser.files.paths[file_idx];
+								
+								// Construct full path to check is_dir
+								// This is tricky without string builder, assuming simple check by name or reloading
+								// Try to enter
+								char[1024] test_path;
+								// Not robust but let's try assuming if it has no extension it is dir (bad assumption but useful for now)
+								// Actually Raylib directory listing includes directories.
+								// Let's just try to enter, if it fails assume file
+								
+								// Better: directory_exists check on full path
+								char[2048] check_path;
+								usz clen = 0; while (browser.current_directory[clen] != 0) clen++;
+								for(int i=0; i<clen; i++) check_path[i] = browser.current_directory[i];
+								
+								usz nlen = 0; while (path[nlen] != 0) nlen++;
+								for(int i=0; i<nlen; i++) check_path[clen + i] = path[i];
+								check_path[clen+nlen] = 0;
+								
+								if (rl::directory_exists((ZString)&check_path))
+								{
+									browser.enter_dir(path);
+									input_len = 0;
+									input_buf[0] = 0;
+								}
+								else
+								{
+									// Is file, select it
+									input_len = 0;
+									for(int i=0; i<nlen && i<255; i++) {
+										input_buf[i] = path[i];
+										input_len++;
+									}
+									input_buf[input_len] = 0;
+								}
+							}
+						}
+					}
+				}
+				
+				// Scroll
+				int wheel = (int)rl::get_mouse_wheel_move();
+				if (wheel != 0)
+				{
+					browser.scroll_offset -= wheel;
+					if (browser.scroll_offset < 0) browser.scroll_offset = 0;
+					if (browser.files.count > 10 && browser.scroll_offset > browser.files.count - 10) 
+					{
+						browser.scroll_offset = browser.files.count - 10;
+					}
+				}
+			}
+
+			// Modal Input (Shared logic with browser input field)
 			int key = rl::get_char_pressed();
 			while (key > 0)
 			{
@@ -67,22 +198,35 @@ fn int main(String[] args)
 			
 			if (rl::is_key_pressed(rl::RLKeyboardKey.ENTER))
 			{
-				char* fn_str = (char*)&input_buf;
-				if (active_modal == 1) // Open
+				// ENTER Logic handle above for clicks, duplicating here for keyboard confirm
+				if (input_len > 0)
 				{
-					state.load_file(fn_str);
-				}
-				else if (active_modal == 2) // Save
-				{
-					// Set filename manually if needed
-					if (state.current_file) mem::free(state.current_file);
-					usz fl = 0; while(input_buf[fl]!=0) fl++;
-					state.current_file = (char*)mem::alloc_array(char, fl + 1);
-					mem::copy(state.current_file, fn_str, fl + 1);
+					// Same submit logic
+					char[2048] full_path;
+					full_path[0] = 0;
+					usz dlen = 0; 
+					if (active_modal >= 3) { // Browser
+						while (browser.current_directory[dlen] != 0) dlen++;
+						for(int i=0; i<dlen; i++) full_path[i] = browser.current_directory[i];
+					}
 					
-					state.save_file();
+					for(int i=0; i<input_len; i++) full_path[dlen + i] = input_buf[i];
+					full_path[dlen + input_len] = 0;
+
+					if (active_modal == 1 || active_modal == 3) // Open
+					{
+						state.load_file((char*)&full_path);
+					}
+					else if (active_modal == 2 || active_modal == 4) // Save
+					{
+						if (state.current_file) mem::free(state.current_file);
+						usz flen = dlen + (usz)input_len;
+						state.current_file = (char*)mem::alloc_array(char, flen + 1);
+						mem::copy(state.current_file, &full_path, flen + 1);
+						state.save_file();
+					}
+					active_modal = 0;
 				}
-				active_modal = 0;
 			}
 		}
 		else
@@ -118,7 +262,8 @@ fn int main(String[] args)
 						if (my < 60) { // New
 							state.init();
 						} else if (my < 90) { // Open
-							active_modal = 1; 
+							active_modal = 3; // Browser Open
+							browser.refresh();
 							input_len = 0; 
 							input_buf[0] = 0; 
 						} else if (my < 120) { // Save
@@ -127,7 +272,8 @@ fn int main(String[] args)
 								state.save_file();
 							}
 							else {
-								active_modal = 2; // Save As
+								active_modal = 4; // Browser Save
+								browser.refresh();
 								input_len = 0;
 								input_buf[0] = 0;
 							}
@@ -200,7 +346,8 @@ fn int main(String[] args)
 						state.save_file();
 					}
 					else {
-						active_modal = 2;
+						active_modal = 4; // Browser Save
+						browser.refresh();
 						input_len = 0;
 						input_buf[0] = 0;
 					}
@@ -251,8 +398,16 @@ fn int main(String[] args)
 		
 		if (active_modal != 0)
 		{
-			char* title = (active_modal == 1) ? "Open File (Path):" : "Save File (Path):";
-			renderer.draw_modal(title, (char*)&input_buf);
+			if (active_modal >= 3)
+			{
+				char* title = (active_modal == 3) ? "Open File" : "Save File As";
+				renderer.draw_file_browser(&browser, title, (char*)&input_buf);
+			}
+			else
+			{
+				char* title = (active_modal == 1) ? "Open File (Path):" : "Save File (Path):";
+				renderer.draw_modal(title, (char*)&input_buf);
+			}
 		}
 		
 		platform::end_drawing();
