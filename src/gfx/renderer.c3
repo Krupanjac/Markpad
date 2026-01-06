@@ -15,7 +15,9 @@ fn void Renderer.init(Renderer* self)
 {
 	self.font = rl::get_font_default();
 	self.font_size = 20;
-	self.char_width = 12; // Approximation for default font
+    // Calculate char width based on '0' (standard digit width) + 1px padding
+    // This provides a tighter, more natural look while maintaining grid alignment for most chars.
+	self.char_width = rl::measure_text("-1", self.font_size) + 1;
 	self.line_height = 24;
 }
 
@@ -181,7 +183,14 @@ fn void Renderer.draw_buffer(Renderer* self, editor::State* state, int start_x, 
 			char[2] str;
 			str[0] = c;
 			str[1] = 0;
-			rl::draw_text((ZString)&str, cur_x, cur_y, current_font_size, current_color);
+            
+            // Center the character in the cell for better variable-width alignment
+            int char_w = rl::measure_text((ZString)&str, current_font_size);
+            int offset_x = (self.char_width - char_w) / 2;
+            
+            // Allow slight overlap for wide chars (offset_x < 0) to keep narrow chars tight
+
+			rl::draw_text((ZString)&str, cur_x + offset_x, cur_y, current_font_size, current_color);
 		}
 		
 		cur_x += self.char_width;
@@ -379,119 +388,126 @@ i++;
 }
 line_buf[line_len] = 0;
 
-// Parse Style
-md::MDStyle style = md::check_line_style((char*)&line_buf, (usz)line_len);
-
-int font_size = self.font_size;
-rl::RLColor color = rl::BLACK;
-int x_offset = 0;
-
-if (style.is_header)
-{
-    color = rl::DARKBLUE;
-    if (style.header_level == 1) { font_size = 40; }
-    else if (style.header_level == 2) { font_size = 32; }
-    else if (style.header_level == 3) { font_size = 28; }
-    else { font_size = 24; }
-}
-else if (style.is_quote)
-{
-    color = rl::GRAY;
-    x_offset = 20;
-    rl::draw_rectangle(cur_x, cur_y, 4, font_size, rl::LIGHTGRAY);
-}
-else if (style.is_list_item)
-{
-    rl::draw_circle(cur_x + 10, cur_y + (font_size / 2), 4.0, rl::BLACK);
-    x_offset = 20;
-}
-
-// Visual simulation for Inline Styles (Header takes precedence)
-// We only change color/indicator since we don't have font variants in default font
-if (style.is_bold) color = rl::BLACK; 
-if (style.is_italic) color = rl::DARKGRAY;
-if (style.is_strikethrough) color = rl::GRAY;
-if (style.is_link) color = rl::BLUE;
-if (style.is_code) 
-{
-    color = (rl::RLColor){ 50, 50, 50, 255 };
-    rl::draw_rectangle(cur_x, cur_y, width, font_size + 4, rl::LIGHTGRAY);
-}
-
-// Prepare text for rendering (Skip tokens)
-char* text_ptr = (char*)&line_buf;
-if (style.is_header) text_ptr = &line_buf[style.header_level + 1];
-if (style.is_quote) text_ptr = &line_buf[2];
-if (style.is_list_item) text_ptr = &line_buf[2];
-
-
-// Word Wrapping Logic
-int text_len = 0; while(text_ptr[text_len] != 0) text_len++;
-if (text_len == 0 && !style.is_list_item) { 
-    // empty line
-    cur_y += font_size + 4; 
-    continue; 
-}
-
-int current_x_offset = x_offset;
-int available_width = width - x_offset - 10;
-int drawn_chars = 0;
-
-// Standard Rendering (No Wrap)
-if (!state.word_wrap)
-{
-    rl::draw_text((ZString)text_ptr, cur_x + current_x_offset, cur_y, font_size, color);
-    cur_y += font_size + 4;
-    continue;
-}
-
-while (drawn_chars < text_len)
-{
-    // Greedily take as many words as fit
-    int fit_count = 0;
-    int pixel_width = 0;
-    int last_space = -1;
-    
-    // Measure char by char (approximation using char_width)
-    // Raylib's MeasureText is better but unavailable in this binding easily? 
-    // We assume self.char_width = 12 constant for now (Monospaced default font)
-    // For variable width font like Default, we should use MeasureText
-    
-    for (int k = drawn_chars; k < text_len; k++)
-    {
-        // Simple width check: Measure from drawn_chars to k
-        char c_backup = text_ptr[k+1];
-        text_ptr[k+1] = 0;
-        int w = rl::measure_text((ZString)&text_ptr[drawn_chars], font_size);
-        text_ptr[k+1] = c_backup;
-        
-        if (w > available_width)
-        {
-            if (last_space != -1) {
-                fit_count = (last_space - drawn_chars) + 1; // Include space
-            } else {
-                fit_count = (k - drawn_chars); // Force break word
-                if (fit_count == 0) fit_count = 1; // Always draw at least one char
+// New Logic
+        int old_y = cur_y;
+        if (line_len > 0) {
+            void* doc = md::cmark_parse_document((char*)&line_buf, (usz)line_len, 0);
+            if (doc != null) {
+                defer md::cmark_node_free(doc);
+                md::MDStyle st = {}; // Use st to avoid collision
+                self.draw_markdown_nodes(doc, &cur_x, &cur_y, start_x, start_x + width, st);
             }
-            break;
+        }
+        if (cur_y == old_y) { cur_y += self.font_size + 4; }
+        else { cur_y += 4; }
+        cur_x = start_x;
+        continue;
+
+    }
+}
+
+// Helper for drawing cmark nodes recursively (rendering implementation)
+fn void Renderer.draw_markdown_nodes(Renderer* self, void* node, int* cur_x, int* cur_y, int start_x, int max_width, md::MDStyle style)
+{
+    void* n = node;
+    while (n != null)
+    {
+        int type = md::cmark_node_get_type(n);
+        md::MDStyle next_style = style;
+        
+        // Update Style based on Node Type
+        if (type == md::CMARK_NODE_STRONG) next_style.is_bold = true;
+        if (type == md::CMARK_NODE_EMPH) next_style.is_italic = true;
+        if (type == md::CMARK_NODE_CODE) next_style.is_code = true;
+        if (type == md::CMARK_NODE_LINK) 
+        {
+             next_style.is_link = true;
+        }
+        if (type == md::CMARK_NODE_HEADING)
+        {
+            next_style.is_header = true;
+            next_style.header_level = md::cmark_node_get_heading_level(n);
+        }
+        if (type == md::CMARK_NODE_BLOCK_QUOTE) 
+        {
+            next_style.is_quote = true;
         }
         
-        if (text_ptr[k] == ' ') last_space = k;
-        fit_count = (k - drawn_chars) + 1;
-    }
-    
-    // Draw the segment
-    char c_backup_end = text_ptr[drawn_chars + fit_count];
-    text_ptr[drawn_chars + fit_count] = 0;
-    rl::draw_text((ZString)&text_ptr[drawn_chars], cur_x + current_x_offset, cur_y, font_size, color);
-    text_ptr[drawn_chars + fit_count] = c_backup_end;
-    
-    drawn_chars += fit_count;
-    cur_y += font_size + 2;
-    // Indent subsequent lines if quote/list?
-    // Maybe keep offset? Yes.
-}
+        // List Item Handling (Draw Bullet)
+        if (type == md::CMARK_NODE_ITEM || type == md::CMARK_NODE_LIST)
+        {
+             if (type == md::CMARK_NODE_ITEM)
+             {
+                 rl::draw_circle(*cur_x + 6, *cur_y + (self.font_size / 2) + 2, 3.0, rl::BLACK);
+                 *cur_x += 20;
+             }
+        }
 
-cur_y += 4; // Extra paragraph spacing
-}
+        // Draw Text / Code Content
+        if (type == md::CMARK_NODE_TEXT || type == md::CMARK_NODE_CODE)
+        {
+            char* text = md::cmark_node_get_literal(n);
+            if (text != null)
+            {
+                rl::RLColor color = rl::BLACK;
+                if (next_style.is_link)  { color = rl::BLUE; }
+                else if (next_style.is_code) { color = (rl::RLColor){60,60,60,255}; }
+                else if (next_style.is_quote) { color = rl::GRAY; }
+                else if (next_style.is_italic) { color = (rl::RLColor){80, 80, 80, 255}; } // Dark gray for italic
+                
+                if (next_style.is_header) color = rl::DARKBLUE;
+
+                int font_size = self.font_size;
+                if (next_style.is_header) 
+                {
+                    if (next_style.header_level == 1) { font_size = 40; }
+                    else if (next_style.header_level == 2) { font_size = 32; }
+                    else if (next_style.header_level == 3) { font_size = 28; }
+                    else { font_size = 24; }
+                }
+                
+                // Draw Background (Code)
+                if (next_style.is_code && type == md::CMARK_NODE_CODE)
+                {
+                     int w = rl::measure_text((ZString)text, font_size);
+                     rl::draw_rectangle(*cur_x, *cur_y, w, font_size + 2, rl::LIGHTGRAY);
+                }
+                
+                // --- Simple Word Wrapping Simulation ---
+                // Currently just checking start of word. 
+                // A better imp would split the text node.
+                int w = rl::measure_text((ZString)text, font_size);
+                if (*cur_x + w > max_width && max_width > 0)
+                {
+                     // Primitive wrap: move whole text to next line
+                     // (Does not split words)
+                     *cur_x = start_x;
+                     *cur_y += font_size + 4;
+                }
+
+                // Draw Text
+                if (next_style.is_bold)
+                {
+                    rl::draw_text((ZString)text, *cur_x + 1, *cur_y, font_size, color);
+                }
+                rl::draw_text((ZString)text, *cur_x, *cur_y, font_size, color);
+                
+                // Advance
+                *cur_x += w;
+            }
+        }
+        else if (type == md::CMARK_NODE_SOFTBREAK)
+        {
+             *cur_x += rl::measure_text(" ", self.font_size);
+        }
+
+        // Recurse children
+        void* child = md::cmark_node_first_child(n);
+        if (child != null)
+        {
+            self.draw_markdown_nodes(child, cur_x, cur_y, start_x, max_width, next_style);
+        }
+
+        n = md::cmark_node_next(n);
+    }
 }

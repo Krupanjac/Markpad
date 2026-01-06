@@ -71,6 +71,30 @@ struct MDStyle
     bool is_link;
 }
 
+// Helper to recursively check for inline styles
+fn void check_inline_styles(void* node, MDStyle* style)
+{
+    while (node != null)
+    {
+        int type = cmark_node_get_type(node);
+        
+        if (type == CMARK_NODE_STRONG) style.is_bold = true;
+        if (type == CMARK_NODE_EMPH) style.is_italic = true;
+        if (type == CMARK_NODE_CODE) style.is_code = true;
+        if (type == CMARK_NODE_LINK) style.is_link = true;
+        // cmark doesn't support strikethrough by default
+        
+        // Recurse into children
+        void* child = cmark_node_first_child(node);
+        if (child != null) 
+        {
+            check_inline_styles(child, style);
+        }
+
+        node = cmark_node_next(node);
+    }
+}
+
 // Check the style of a line (using cmark to parse the single line)
 fn MDStyle check_line_style(char* line_start, usz len)
 {
@@ -113,19 +137,9 @@ fn MDStyle check_line_style(char* line_start, usz len)
     }
     else if (type == CMARK_NODE_PARAGRAPH)
     {
-        // Traverse inline nodes to detect basic styles present in the line
+        // Traverse inline nodes deeply
         void* inline_node = cmark_node_first_child(child);
-        while (inline_node != null)
-        {
-            int inline_type = cmark_node_get_type(inline_node);
-            
-            if (inline_type == CMARK_NODE_STRONG) style.is_bold = true;
-            if (inline_type == CMARK_NODE_EMPH) style.is_italic = true;
-            if (inline_type == CMARK_NODE_CODE) style.is_code = true;
-            if (inline_type == CMARK_NODE_LINK) style.is_link = true;
-            
-            inline_node = cmark_node_next(inline_node);
-        }
+        check_inline_styles(inline_node, &style);
     }
 
     return style;
