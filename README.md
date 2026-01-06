@@ -1,6 +1,6 @@
 # Markpad
 
-Markpad is a lightweight, efficient text editor built using the [C3 programming language](https://c3-lang.org/) and [Raylib](https://www.raylib.com/). It aims to provide a Sublime Text-like experience with a focus on performance and simplicity.
+Markpad is a lightweight, efficient text editor built using the [C3 programming language](https://c3-lang.org/) and [Raylib](https://www.raylib.com/). It aims to provide a text editor experience with a focus on performance and simplicity.
 
 ## Features
 
@@ -24,7 +24,7 @@ Markpad is a lightweight, efficient text editor built using the [C3 programming 
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/yourusername/Markpad.git
+   git clone https://github.com/Krupanjac/Markpad.git
    cd Markpad
    ```
 
@@ -40,19 +40,6 @@ Markpad is a lightweight, efficient text editor built using the [C3 programming 
    # or
    c3c run
    ```
-
-## Controls
-
-| Key Combination | Action |
-|----------------|--------|
-| `Ctrl + S` | Save File (Prompts if new) |
-| `Ctrl + O` | Open File (Prompt) |
-| `Ctrl + C` | Copy |
-| `Ctrl + V` | Paste |
-| `Ctrl + X` | Cut |
-| `Ctrl + A` | Select All |
-| `Arrows` | Move Cursor |
-| `Shift + Arrows` | Select Text |
 
 ## License
 
