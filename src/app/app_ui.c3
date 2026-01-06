@@ -132,8 +132,18 @@ fn void App.update_modal(App *self)
 					else if (file_idx >= 0 && file_idx < browser.files.count)
 					{
 						browser.selected_index = file_idx;
-						char* path = browser.files.paths[file_idx];
+						char* raw_path = browser.files.paths[file_idx];
 						
+						// Extract filename from path (handle Windows/Unix separators)
+						// This prevents path duplication if Raylib returns full paths
+						char* path = raw_path;
+						int rp_len = 0; while (raw_path[rp_len] != 0) rp_len++;
+						for (int k = rp_len - 1; k >= 0; k--) {
+							if (raw_path[k] == '/' || raw_path[k] == '\\') {
+								path = &raw_path[k+1];
+								break;
+							}
+						}
 						char[2048] check_path;
 						usz clen = 0; while (browser.current_directory[clen] != 0) clen++;
 						for(int i=0; i<clen; i++) check_path[i] = browser.current_directory[i];
