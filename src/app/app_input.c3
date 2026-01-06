@@ -22,6 +22,14 @@ fn void App.handle_editor_input(App *self)
 		if (!ctrl) state.insert_char((char)key);
 	}
 	
+	// Mouse Scroll
+	int wheel = (int)rl::get_mouse_wheel_move();
+	if (wheel != 0)
+	{
+		state.scroll_y -= wheel * 24; // Scroll by line height
+		if (state.scroll_y < 0) state.scroll_y = 0;
+	}
+
 	// Mouse Interaction
 	int mx = rl::get_mouse_x();
 	int my = rl::get_mouse_y();

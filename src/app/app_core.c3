@@ -88,11 +88,34 @@ fn void App.draw(App *self)
 	platform::begin_drawing();
 	
 	self.renderer.draw_menu_bar();
-	self.renderer.draw_buffer(&self.state, 50, 50);
+	
+	if (self.state.show_markdown_preview)
+	{
+		// Split screen
+		int sw = rl::get_screen_width();
+		int half_w = (sw / 2);
+		
+		// Draw Editor on Left (half width)
+		// We need to update draw_buffer signature to accept width, or use a scissor mode
+		rl::begin_scissor_mode(0, 30, half_w, rl::get_screen_height() - 30);
+			self.renderer.draw_buffer(&self.state, 50, 50); // Need to pass clip option?
+		rl::end_scissor_mode();
+		
+		rl::draw_line(half_w, 30, half_w, rl::get_screen_height(), rl::GRAY);
+		
+		// Draw Preview on Right
+		rl::begin_scissor_mode(half_w, 30, half_w, rl::get_screen_height() - 30);
+			self.renderer.draw_markdown_preview(&self.state, half_w + 10, 50, half_w - 20);
+		rl::end_scissor_mode();
+	}
+	else
+	{
+		self.renderer.draw_buffer(&self.state, 50, 50);
+	}
 	
 	if (self.active_menu > 0)
 	{
-		self.renderer.draw_menu_dropdown(self.active_menu);
+		self.renderer.draw_menu_dropdown(self.active_menu, &self.state);
 	}
 	
 	if (self.active_modal != 0)

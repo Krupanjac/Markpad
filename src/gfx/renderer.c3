@@ -1,6 +1,7 @@
 module markpad::gfx;
 import raylib55::rl;
 import markpad::editor;
+import markpad::md;
 
 struct Renderer
 {
@@ -26,13 +27,15 @@ fn void Renderer.draw_simple_text(Renderer* self, char* text, int x, int y, int 
 // Calculate the buffer index for a given screen position (hit testing)
 fn usz Renderer.get_index_at_pos(Renderer* self, editor::State* state, int target_x, int target_y, int start_x, int start_y)
 {
-	if (target_y < start_y) return 0;
+	int effective_start_y = start_y - state.scroll_y;
+	if (target_y < effective_start_y) return 0; // Or better logic?
 
 	int cur_x = start_x;
-	int cur_y = start_y;
+	int cur_y = effective_start_y;
 	usz len = state.buffer.len();
 	int max_width = rl::get_screen_width() - start_x - 10;
-	
+	if (state.show_markdown_preview) max_width = (rl::get_screen_width() / 2) - start_x - 10;
+
 	// Simple hit test: find closest character
 	for (usz i = 0; i < len; i++)
 	{
@@ -98,35 +101,65 @@ fn void Renderer.draw_buffer(Renderer* self, editor::State* state, int start_x, 
 {
 	editor::GapBuffer* buffer = &state.buffer;
 	int cur_x = start_x;
-	int cur_y = start_y;
+	int cur_y = start_y - state.scroll_y; // Apply Scroll
 	usz len = buffer.len();
 	int max_width = rl::get_screen_width() - start_x - 10;
+	if (state.show_markdown_preview) max_width = (rl::get_screen_width() / 2) - start_x - 10;
 	
 	usz sel_start = state.selection_anchor < buffer.gap_start ? state.selection_anchor : buffer.gap_start;
 	usz sel_end = state.selection_anchor > buffer.gap_start ? state.selection_anchor : buffer.gap_start;
 	bool selected = sel_start != sel_end;
 
+	// Syntax State
+	bool new_line = true;
+	rl::RLColor current_color = rl::BLACK;
+	int current_font_size = self.font_size; 
+
 	// Draw content
 	for (usz i = 0; i < len; i++)
 	{
+		// Skip drawing if above screen (Optimization)
+		// But we must calculate positions correctly
+		bool visible = (cur_y + self.line_height > 30) && (cur_y < rl::get_screen_height());
+
 		// Checking selection early to draw background
-		if (selected && i >= sel_start && i < sel_end)
+		if (selected && i >= sel_start && i < sel_end && visible)
 		{
 			rl::draw_rectangle(cur_x, cur_y, self.char_width, self.line_height, rl::SKYBLUE);
 		}
 
 		// Draw Cursor
-		if (i == buffer.gap_start)
+		if (i == buffer.gap_start && visible)
 		{
 			rl::draw_rectangle(cur_x, cur_y, 2, self.line_height, rl::RED);
 		}
 
 		char c = buffer.get_char_at(i);
 		
+		// Check Syntax at start of line
+		if (new_line && state.show_markdown_syntax)
+		{
+			new_line = false;
+			current_color = rl::BLACK;
+			current_font_size = self.font_size;
+			
+			// Simple Header Check
+			if (c == '#') {
+				current_color = rl::BLUE;
+				if (i + 1 < len && buffer.get_char_at(i+1) == ' ') current_font_size = 24; 
+			}
+			if (c == '>') {
+				current_color = rl::GRAY;
+			}
+		}
+
 		if (c == '\n')
 		{
 			cur_x = start_x;
-			cur_y += self.line_height;
+			cur_y += self.line_height; 
+			new_line = true;
+			current_color = rl::BLACK;
+			current_font_size = self.font_size;
 			continue;
 		}
 		
@@ -143,10 +176,13 @@ fn void Renderer.draw_buffer(Renderer* self, editor::State* state, int start_x, 
 		}
 
 		// Draw Char
-		char[2] str;
-		str[0] = c;
-		str[1] = 0;
-		rl::draw_text((ZString)&str, cur_x, cur_y, self.font_size, rl::BLACK);
+		if (visible)
+		{
+			char[2] str;
+			str[0] = c;
+			str[1] = 0;
+			rl::draw_text((ZString)&str, cur_x, cur_y, current_font_size, current_color);
+		}
 		
 		cur_x += self.char_width;
 	}
@@ -258,7 +294,7 @@ fn void Renderer.draw_file_browser(Renderer* self, editor::FileBrowser* browser,
 	rl::draw_text("X", x + w - 50, input_y + 5, 20, rl::BLACK);
 }
 
-fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id)
+fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id, editor::State* state)
 {
 	int start_x = 0;
 	int start_y = 30;
@@ -292,11 +328,18 @@ fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id)
 	else if (menu_id == 3) // View
 	{
 		start_x = 110;
-		int height = item_height * 1;
+		int height = item_height * 3;
 		rl::draw_rectangle(start_x, start_y, width, height, rl::RAYWHITE);
 		rl::draw_rectangle_lines(start_x, start_y, width, height, rl::GRAY);
 		
-		rl::draw_text("Word Wrap", start_x + 10, start_y + 5, 20, rl::BLACK);
+		rl::draw_text("Word Wrap", start_x + 30, start_y + 5, 20, rl::BLACK);
+		if (state.word_wrap) rl::draw_text("x", start_x + 10, start_y + 5, 20, rl::DARKGREEN);
+
+		rl::draw_text("Show Syntax", start_x + 30, start_y + 35, 20, rl::BLACK);
+		if (state.show_markdown_syntax) rl::draw_text("x", start_x + 10, start_y + 35, 20, rl::DARKGREEN);
+
+		rl::draw_text("Show Preview", start_x + 30, start_y + 65, 20, rl::BLACK);
+		if (state.show_markdown_preview) rl::draw_text("x", start_x + 10, start_y + 65, 20, rl::DARKGREEN);
 	}
 	else if (menu_id == 4) // Help
 	{
@@ -307,4 +350,148 @@ fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id)
 		
 		rl::draw_text("About", start_x + 10, start_y + 5, 20, rl::BLACK);
 	}
+}
+
+fn void Renderer.draw_markdown_preview(Renderer* self, editor::State* state, int start_x, int start_y, int width)
+{
+int cur_x = start_x;
+int cur_y = start_y;
+
+usz i = 0;
+usz len = state.buffer.len();
+
+while (i < len)
+{
+// Extract line
+char[1024] line_buf;
+int line_len = 0;
+while (i < len && line_len < 1023)
+{
+char c = state.buffer.get_char_at(i);
+if (c == '\n') 
+{
+i++;
+break;
+}
+line_buf[line_len] = c;
+line_len++;
+i++;
+}
+line_buf[line_len] = 0;
+
+// Parse Style
+md::MDStyle style = md::check_line_style((char*)&line_buf, (usz)line_len);
+
+int font_size = self.font_size;
+rl::RLColor color = rl::BLACK;
+int x_offset = 0;
+
+if (style.is_header)
+{
+    color = rl::DARKBLUE;
+    if (style.header_level == 1) { font_size = 40; }
+    else if (style.header_level == 2) { font_size = 32; }
+    else if (style.header_level == 3) { font_size = 28; }
+    else { font_size = 24; }
+}
+else if (style.is_quote)
+{
+    color = rl::GRAY;
+    x_offset = 20;
+    rl::draw_rectangle(cur_x, cur_y, 4, font_size, rl::LIGHTGRAY);
+}
+else if (style.is_list_item)
+{
+    rl::draw_circle(cur_x + 10, cur_y + (font_size / 2), 4.0, rl::BLACK);
+    x_offset = 20;
+}
+
+// Visual simulation for Inline Styles (Header takes precedence)
+// We only change color/indicator since we don't have font variants in default font
+if (style.is_bold) color = rl::BLACK; 
+if (style.is_italic) color = rl::DARKGRAY;
+if (style.is_strikethrough) color = rl::GRAY;
+if (style.is_link) color = rl::BLUE;
+if (style.is_code) 
+{
+    color = (rl::RLColor){ 50, 50, 50, 255 };
+    rl::draw_rectangle(cur_x, cur_y, width, font_size + 4, rl::LIGHTGRAY);
+}
+
+// Prepare text for rendering (Skip tokens)
+char* text_ptr = (char*)&line_buf;
+if (style.is_header) text_ptr = &line_buf[style.header_level + 1];
+if (style.is_quote) text_ptr = &line_buf[2];
+if (style.is_list_item) text_ptr = &line_buf[2];
+
+
+// Word Wrapping Logic
+int text_len = 0; while(text_ptr[text_len] != 0) text_len++;
+if (text_len == 0 && !style.is_list_item) { 
+    // empty line
+    cur_y += font_size + 4; 
+    continue; 
+}
+
+int current_x_offset = x_offset;
+int available_width = width - x_offset - 10;
+int drawn_chars = 0;
+
+// Standard Rendering (No Wrap)
+if (!state.word_wrap)
+{
+    rl::draw_text((ZString)text_ptr, cur_x + current_x_offset, cur_y, font_size, color);
+    cur_y += font_size + 4;
+    continue;
+}
+
+while (drawn_chars < text_len)
+{
+    // Greedily take as many words as fit
+    int fit_count = 0;
+    int pixel_width = 0;
+    int last_space = -1;
+    
+    // Measure char by char (approximation using char_width)
+    // Raylib's MeasureText is better but unavailable in this binding easily? 
+    // We assume self.char_width = 12 constant for now (Monospaced default font)
+    // For variable width font like Default, we should use MeasureText
+    
+    for (int k = drawn_chars; k < text_len; k++)
+    {
+        // Simple width check: Measure from drawn_chars to k
+        char c_backup = text_ptr[k+1];
+        text_ptr[k+1] = 0;
+        int w = rl::measure_text((ZString)&text_ptr[drawn_chars], font_size);
+        text_ptr[k+1] = c_backup;
+        
+        if (w > available_width)
+        {
+            if (last_space != -1) {
+                fit_count = (last_space - drawn_chars) + 1; // Include space
+            } else {
+                fit_count = (k - drawn_chars); // Force break word
+                if (fit_count == 0) fit_count = 1; // Always draw at least one char
+            }
+            break;
+        }
+        
+        if (text_ptr[k] == ' ') last_space = k;
+        fit_count = (k - drawn_chars) + 1;
+    }
+    
+    // Draw the segment
+    char c_backup_end = text_ptr[drawn_chars + fit_count];
+    text_ptr[drawn_chars + fit_count] = 0;
+    rl::draw_text((ZString)&text_ptr[drawn_chars], cur_x + current_x_offset, cur_y, font_size, color);
+    text_ptr[drawn_chars + fit_count] = c_backup_end;
+    
+    drawn_chars += fit_count;
+    cur_y += font_size + 2;
+    // Indent subsequent lines if quote/list?
+    // Maybe keep offset? Yes.
+}
+
+cur_y += 4; // Extra paragraph spacing
+}
 }

@@ -50,11 +50,21 @@ fn bool App.handle_menu_interaction(App *self)
 	}
 	else if (self.active_menu == 3) // View
 	{
-		if (mx >= 110 && mx <= 310 && my > 30 && my < 60)
+		if (mx >= 110 && mx <= 310 && my > 30 && my < 150)
 		{
-			clicked_menu_item = true; // Consumed
+			clicked_menu_item = true; 
 			self.active_menu = 0;
-			self.state.word_wrap = !self.state.word_wrap;
+			
+			if (my < 60) {
+				self.state.word_wrap = !self.state.word_wrap;
+			}
+			else if (my < 90) {
+				self.state.show_markdown_syntax = !self.state.show_markdown_syntax;
+			}
+			else if (my < 120) {
+				self.state.show_markdown_preview = !self.state.show_markdown_preview;
+			}
+			
 			return true;
 		}
 	}
