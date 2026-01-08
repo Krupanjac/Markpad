@@ -5,7 +5,15 @@ import markpad::md;
 
 struct Renderer
 {
+	rl::RLFont[5] fonts;
+    char*[5] font_names;
+    int current_font_idx;
+    
 	rl::RLFont font;
+    // Removed specific sys_font variables as they are now in the array
+	// rl::RLFont sys_font;
+	// bool use_sys_font;
+	
 	int font_size;
 	int char_width;
 	int line_height;
@@ -13,13 +21,59 @@ struct Renderer
 
 fn void Renderer.init(Renderer* self)
 {
-	self.font = rl::get_font_default();
+	self.fonts[0] = rl::get_font_default();
+    self.font_names[0] = "Default";
+    
+	self.fonts[1] = rl::load_font_ex("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 32, (int*)0, 0);
+    if (self.fonts[1].texture.id == 0) self.fonts[1] = rl::get_font_default(); // Fallback
+    self.font_names[1] = "System (DejaVu)";
+    
+    // Load Custom Fonts
+    self.fonts[2] = rl::load_font_ex("resources/Fira/FiraCode-Regular.ttf", 32, (int*)0, 0);
+    self.font_names[2] = "Fira Code";
+    
+    self.fonts[3] = rl::load_font_ex("resources/JetBrainsMono/JetBrainsMono-Regular.ttf", 32, (int*)0, 0);
+    self.font_names[3] = "JetBrains Mono";
+    
+    self.fonts[4] = rl::load_font_ex("resources/Cascadia/CascadiaCode.ttf", 32, (int*)0, 0);
+    self.font_names[4] = "Cascadia Code";
+
+    self.current_font_idx = 0;
+	self.font = self.fonts[0];
+    
 	self.font_size = 20;
-    // Calculate char width based on '0' (standard digit width) + 1px padding
-    // This provides a tighter, more natural look while maintaining grid alignment for most chars.
-	self.char_width = rl::measure_text("-1", self.font_size) + 1;
 	self.line_height = 24;
+    self.recalc_metrics();
 }
+
+fn void Renderer.recalc_metrics(Renderer* self)
+{
+    // Re-measure 'M' for width
+    rl::RLVector2 v = rl::measure_text_ex(self.font, "M", (float)self.font_size, 1.0);
+    self.char_width = (int)v.x;
+    
+    // Add spacing for default font as it is tight
+    if (self.current_font_idx == 0) self.char_width += 4;
+}
+
+fn void Renderer.toggle_font(Renderer* self)
+{
+    self.current_font_idx = (self.current_font_idx + 1) % 5;
+    
+    // Skip failed loads (fallback to default)
+    // Actually if fallback was default, texture.id is not 0 (except it is a copy), 
+    // but let's assume valid. 
+    // Checking texture.id == 0 means not loaded
+    while (self.fonts[self.current_font_idx].texture.id == 0 && self.current_font_idx != 0)
+    {
+         self.current_font_idx = (self.current_font_idx + 1) % 5;
+    }
+    
+    self.font = self.fonts[self.current_font_idx];
+    self.recalc_metrics();
+}
+
+
 
 fn void Renderer.draw_simple_text(Renderer* self, char* text, int x, int y, int size, rl::RLColor color)
 {
@@ -99,29 +153,25 @@ fn void Renderer.draw_menu_bar(Renderer* self)
 	rl::draw_line(0, 30, rl::get_screen_width(), 30, rl::GRAY);
 }
 
-fn void Renderer.draw_buffer(Renderer* self, editor::State* state, int start_x, int start_y)
+fn void Renderer.draw_buffer(Renderer* self, editor::State* state, int start_x, int start_y, int view_width)
 {
 	editor::GapBuffer* buffer = &state.buffer;
 	int cur_x = start_x;
 	int cur_y = start_y - state.scroll_y; // Apply Scroll
 	usz len = buffer.len();
-	int max_width = rl::get_screen_width() - start_x - 10;
-	if (state.show_markdown_preview) max_width = (rl::get_screen_width() / 2) - start_x - 10;
+	int max_width = view_width - 10;
 	
 	usz sel_start = state.selection_anchor < buffer.gap_start ? state.selection_anchor : buffer.gap_start;
 	usz sel_end = state.selection_anchor > buffer.gap_start ? state.selection_anchor : buffer.gap_start;
 	bool selected = sel_start != sel_end;
 
 	// Syntax State
-	bool new_line = true;
-	rl::RLColor current_color = rl::BLACK;
-	int current_font_size = self.font_size; 
+	// Removed per request
 
 	// Draw content
 	for (usz i = 0; i < len; i++)
 	{
 		// Skip drawing if above screen (Optimization)
-		// But we must calculate positions correctly
 		bool visible = (cur_y + self.line_height > 30) && (cur_y < rl::get_screen_height());
 
 		// Checking selection early to draw background
@@ -137,31 +187,11 @@ fn void Renderer.draw_buffer(Renderer* self, editor::State* state, int start_x, 
 		}
 
 		char c = buffer.get_char_at(i);
-		
-		// Check Syntax at start of line
-		if (new_line && state.show_markdown_syntax)
-		{
-			new_line = false;
-			current_color = rl::BLACK;
-			current_font_size = self.font_size;
-			
-			// Simple Header Check
-			if (c == '#') {
-				current_color = rl::BLUE;
-				if (i + 1 < len && buffer.get_char_at(i+1) == ' ') current_font_size = 24; 
-			}
-			if (c == '>') {
-				current_color = rl::GRAY;
-			}
-		}
 
 		if (c == '\n')
 		{
 			cur_x = start_x;
 			cur_y += self.line_height; 
-			new_line = true;
-			current_color = rl::BLACK;
-			current_font_size = self.font_size;
 			continue;
 		}
 		
@@ -185,12 +215,11 @@ fn void Renderer.draw_buffer(Renderer* self, editor::State* state, int start_x, 
 			str[1] = 0;
             
             // Center the character in the cell for better variable-width alignment
-            int char_w = rl::measure_text((ZString)&str, current_font_size);
+            rl::RLVector2 v = rl::measure_text_ex(self.font, (ZString)&str, (float)self.font_size, 1.0);
+            int char_w = (int)v.x;
             int offset_x = (self.char_width - char_w) / 2;
             
-            // Allow slight overlap for wide chars (offset_x < 0) to keep narrow chars tight
-
-			rl::draw_text((ZString)&str, cur_x + offset_x, cur_y, current_font_size, current_color);
+			rl::draw_text_ex(self.font, (ZString)&str, (rl::RLVector2){ (float)(cur_x + offset_x), (float)cur_y }, (float)self.font_size, 1.0, rl::BLACK);
 		}
 		
 		cur_x += self.char_width;
@@ -201,6 +230,33 @@ fn void Renderer.draw_buffer(Renderer* self, editor::State* state, int start_x, 
 	{
 		rl::draw_rectangle(cur_x, cur_y, 2, self.line_height, rl::RED);
 	}
+
+    // Scrollbar (Basic)
+    int screen_h = rl::get_screen_height();
+    int content_h = 0; 
+    
+    // Better estimate: count newlines
+    int line_count = 1;
+    for (usz k = 0; k < len; k++) { if (buffer.get_char_at(k) == '\n') line_count++; }
+    content_h = line_count * self.line_height;
+    if (content_h < screen_h) content_h = screen_h;
+
+    float view_ratio = (float)screen_h / (float)content_h;
+    if (view_ratio < 1.0)
+    {
+        int scroll_h = (int)(screen_h * view_ratio);
+        if (scroll_h < 30) scroll_h = 30;
+        int scroll_y = (int)((float)state.scroll_y / (float)(content_h - screen_h) * (float)(screen_h - scroll_h));
+        
+        // Draw Scrollbar Track
+        // Position relative to view_width and start_x
+        int scroll_x = start_x + view_width - 15;
+
+        // Draw Scrollbar Track
+        rl::draw_rectangle(scroll_x, 0, 15, screen_h, (rl::RLColor){240, 240, 240, 255});
+        // Draw Thumb
+        rl::draw_rectangle(scroll_x + 2, scroll_y, 11, scroll_h, rl::DARKGRAY);
+    }
 }
 
 fn void Renderer.draw_modal(Renderer* self, char* title, char* input_text)
@@ -344,11 +400,11 @@ fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id, editor::State* 
 		rl::draw_text("Word Wrap", start_x + 30, start_y + 5, 20, rl::BLACK);
 		if (state.word_wrap) rl::draw_text("x", start_x + 10, start_y + 5, 20, rl::DARKGREEN);
 
-		rl::draw_text("Show Syntax", start_x + 30, start_y + 35, 20, rl::BLACK);
-		if (state.show_markdown_syntax) rl::draw_text("x", start_x + 10, start_y + 35, 20, rl::DARKGREEN);
-
-		rl::draw_text("Show Preview", start_x + 30, start_y + 65, 20, rl::BLACK);
-		if (state.show_markdown_preview) rl::draw_text("x", start_x + 10, start_y + 65, 20, rl::DARKGREEN);
+		rl::draw_text("Show Preview", start_x + 30, start_y + 35, 20, rl::BLACK);
+		if (state.show_markdown_preview) rl::draw_text("x", start_x + 10, start_y + 35, 20, rl::DARKGREEN);
+		
+		rl::draw_text("Font:", start_x + 10, start_y + 65, 20, rl::BLACK);
+        rl::draw_text((ZString)self.font_names[self.current_font_idx], start_x + 60, start_y + 65, 20, rl::DARKGRAY);
 	}
 	else if (menu_id == 4) // Help
 	{
@@ -363,13 +419,13 @@ fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id, editor::State* 
 
 fn void Renderer.draw_markdown_preview(Renderer* self, editor::State* state, int start_x, int start_y, int width)
 {
-int cur_x = start_x;
-int cur_y = start_y;
+    int cur_x = start_x;
+    int cur_y = start_y - state.scroll_y; // Sync scroll with editor
 
-usz i = 0;
-usz len = state.buffer.len();
+    usz i = 0;
+    usz len = state.buffer.len();
 
-while (i < len)
+    while (i < len)
 {
 // Extract line
 char[1024] line_buf;
@@ -469,18 +525,18 @@ fn void Renderer.draw_markdown_nodes(Renderer* self, void* node, int* cur_x, int
                 // Draw Background (Code)
                 if (next_style.is_code && type == md::CMARK_NODE_CODE)
                 {
-                     int w = rl::measure_text((ZString)text, font_size);
+                     rl::RLVector2 v = rl::measure_text_ex(self.font, (ZString)text, (float)font_size, 1.0);
+                     int w = (int)v.x;
                      rl::draw_rectangle(*cur_x, *cur_y, w, font_size + 2, rl::LIGHTGRAY);
                 }
                 
                 // --- Simple Word Wrapping Simulation ---
-                // Currently just checking start of word. 
-                // A better imp would split the text node.
-                int w = rl::measure_text((ZString)text, font_size);
+                rl::RLVector2 main_v = rl::measure_text_ex(self.font, (ZString)text, (float)font_size, 1.0);
+                int w = (int)main_v.x;
+                
                 if (*cur_x + w > max_width && max_width > 0)
                 {
                      // Primitive wrap: move whole text to next line
-                     // (Does not split words)
                      *cur_x = start_x;
                      *cur_y += font_size + 4;
                 }
@@ -488,9 +544,10 @@ fn void Renderer.draw_markdown_nodes(Renderer* self, void* node, int* cur_x, int
                 // Draw Text
                 if (next_style.is_bold)
                 {
-                    rl::draw_text((ZString)text, *cur_x + 1, *cur_y, font_size, color);
+                    // Simulated Bold
+                    rl::draw_text_ex(self.font, (ZString)text, (rl::RLVector2){(float)(*cur_x + 1), (float)*cur_y}, (float)font_size, 1.0, color);
                 }
-                rl::draw_text((ZString)text, *cur_x, *cur_y, font_size, color);
+                rl::draw_text_ex(self.font, (ZString)text, (rl::RLVector2){(float)*cur_x, (float)*cur_y}, (float)font_size, 1.0, color);
                 
                 // Advance
                 *cur_x += w;
@@ -498,7 +555,8 @@ fn void Renderer.draw_markdown_nodes(Renderer* self, void* node, int* cur_x, int
         }
         else if (type == md::CMARK_NODE_SOFTBREAK)
         {
-             *cur_x += rl::measure_text(" ", self.font_size);
+             rl::RLVector2 v = rl::measure_text_ex(self.font, " ", (float)self.font_size, 1.0);
+             *cur_x += (int)v.x;
         }
 
         // Recurse children

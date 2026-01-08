@@ -20,6 +20,10 @@ struct App
 	char[256] input_buf;
 	int input_len;
 	
+    // Scrollbar interaction
+    bool is_dragging_scrollbar;
+    int scrollbar_drag_y_offset;
+
 	bool quit;
 }
 
@@ -34,6 +38,8 @@ fn void App.init(App *self)
 	self.active_menu = 0;
 	self.active_modal = 0;
 	self.input_len = 0;
+    self.is_dragging_scrollbar = false;
+    self.scrollbar_drag_y_offset = 0;
 	self.quit = false;
 	for (int i = 0; i < 256; i++) self.input_buf[i] = 0;
 
@@ -96,9 +102,15 @@ fn void App.draw(App *self)
 		int half_w = (sw / 2);
 		
 		// Draw Editor on Left (half width)
-		// We need to update draw_buffer signature to accept width, or use a scissor mode
 		rl::begin_scissor_mode(0, 30, half_w, rl::get_screen_height() - 30);
-			self.renderer.draw_buffer(&self.state, 50, 50); // Need to pass clip option?
+			// Pass half_w - 50 as view width (considering start_x)
+			// start_x (50) + width must equal right edge. 
+            // If view_width is relative width of component: 
+            // draw_buffer uses: max_width = view_width - 10
+            // and scroll_x = start_x + view_width - 15.
+            // So if start_x is 50, and we want right edge at half_w.
+            // view_width should be (half_w - 50)
+			self.renderer.draw_buffer(&self.state, 50, 50, half_w - 50); 
 		rl::end_scissor_mode();
 		
 		rl::draw_line(half_w, 30, half_w, rl::get_screen_height(), rl::GRAY);
@@ -110,7 +122,8 @@ fn void App.draw(App *self)
 	}
 	else
 	{
-		self.renderer.draw_buffer(&self.state, 50, 50);
+		int sw = rl::get_screen_width();
+		self.renderer.draw_buffer(&self.state, 50, 50, sw - 50);
 	}
 	
 	if (self.active_menu > 0)

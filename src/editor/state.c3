@@ -15,7 +15,6 @@ struct State
 	bool word_wrap;
 	
 	// Markdown features
-	bool show_markdown_syntax;  // In-editor formatting
 	bool show_markdown_preview; // Split-screen preview
 }
 
@@ -27,7 +26,6 @@ fn void State.init(State *self)
 	self.selection_anchor = 0;
 	self.word_wrap = false;
 	
-	self.show_markdown_syntax = false;
 	self.show_markdown_preview = true;
 }
 

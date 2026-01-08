@@ -59,10 +59,10 @@ fn bool App.handle_menu_interaction(App *self)
 				self.state.word_wrap = !self.state.word_wrap;
 			}
 			else if (my < 90) {
-				self.state.show_markdown_syntax = !self.state.show_markdown_syntax;
+				self.state.show_markdown_preview = !self.state.show_markdown_preview;
 			}
 			else if (my < 120) {
-				self.state.show_markdown_preview = !self.state.show_markdown_preview;
+				self.renderer.toggle_font();
 			}
 			
 			return true;
