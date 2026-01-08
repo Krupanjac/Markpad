@@ -5,6 +5,11 @@ Markpad is a lightweight Markdown editor built using the [C3 programming languag
 **Note:** This is a personal pet project created to explore the capabilities of C3 in a GUI application.
 ***README.md*** is written using **Markpad.**
 
+
+![readme.md](https://i.imgur.com/CwqryPo.png)
+![screen2](https://i.imgur.com/h9KpXfd.png)
+
+
 ## Features
 
 - **Live Markdown Preview**:
