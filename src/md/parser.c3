@@ -55,9 +55,12 @@ struct MDStyle
     bool is_italic;
     bool is_code;
     bool is_quote;
-    bool is_list_item;
+    bool is_list_item; // kept for compatibility, but maybe unused
     bool is_strikethrough;
     bool is_link;
+    
+    int list_depth;
+    int quote_depth;
 }
 
 fn void check_inline_styles(void* node, MDStyle* style)
