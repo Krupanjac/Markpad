@@ -59,7 +59,7 @@ fn bool App.handle_menu_interaction(App *self)
 				self.state.show_markdown_preview = !self.state.show_markdown_preview;
 			}
 			else if (my < 120) {
-				self.renderer.toggle_font();
+				self.active_modal = 5; // Font Selector
 			}
 			
 			return true;
@@ -92,7 +92,44 @@ fn bool App.handle_menu_interaction(App *self)
 fn void App.update_modal(App *self)
 {
 	editor::FileBrowser* browser = &self.browser;
-	
+
+	if (self.active_modal == 5)
+	{
+		if (rl::is_key_pressed(rl::RLKeyboardKey.ESCAPE)) {
+			self.active_modal = 0;
+		}
+		
+		if (rl::is_mouse_button_pressed(rl::RLMouseButton.LEFT))
+		{
+			int mx = rl::get_mouse_x();
+			int my = rl::get_mouse_y();
+			int sw = rl::get_screen_width();
+			int sh = rl::get_screen_height();
+			int w = 400;
+			int h = 300;
+			int x = (sw / 2) - (w / 2);
+			int y = (sh / 2) - (h / 2);
+			int list_y = y + 40;
+			
+			if (mx >= x && mx <= x + w && my >= list_y && my <= list_y + (5 * 40))
+			{
+				int rel_y = my - list_y;
+				int idx = rel_y / 40;
+				if (idx >= 0 && idx < 5)
+				{
+					self.renderer.set_font(idx);
+					self.active_modal = 0;
+				}
+			}
+			
+			if (mx < x || mx > x + w || my < y || my > y + h)
+			{
+				self.active_modal = 0;
+			}
+		}
+		return;
+	}
+
 	// Browser Mouse Interaction
 	if (self.active_modal >= 3)
 	{

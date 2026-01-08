@@ -119,8 +119,15 @@ fn void App.draw(App *self)
 	{
 		if (self.active_modal >= 3)
 		{
-			char* title = (self.active_modal == 3) ? "Open File" : "Save File As";
-			self.renderer.draw_file_browser(&self.browser, title, (char*)&self.input_buf);
+            if (self.active_modal == 5)
+            {
+                self.renderer.draw_font_selector();
+            }
+            else
+            {
+                char* title = (self.active_modal == 3) ? "Open File" : "Save File As";
+                self.renderer.draw_file_browser(&self.browser, title, (char*)&self.input_buf);
+            }
 		}
 		else
 		{

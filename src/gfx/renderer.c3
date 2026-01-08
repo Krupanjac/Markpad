@@ -46,8 +46,22 @@ fn void Renderer.recalc_metrics(Renderer* self)
 {
     rl::RLVector2 v = rl::measure_text_ex(self.font, "M", (float)self.font_size, 1.0);
     self.char_width = (int)v.x;
-    
-    if (self.current_font_idx == 0) self.char_width += 4;
+}
+
+fn void Renderer.set_font(Renderer* self, int index)
+{
+    if (index >= 0 && index < 5)
+    {
+        self.current_font_idx = index;
+        if (self.fonts[self.current_font_idx].texture.id != 0)
+        {
+            self.font = self.fonts[self.current_font_idx];
+        }
+        else {
+             self.font = self.fonts[0];
+        }
+        self.recalc_metrics();
+    }
 }
 
 fn void Renderer.toggle_font(Renderer* self)
@@ -251,7 +265,44 @@ fn void Renderer.draw_modal(Renderer* self, char* title, char* input_text)
 	
 	rl::draw_text("Enter to Confirm, Esc to Cancel", x + 10, y + 90, 10, rl::GRAY);
 }
-
+fn void Renderer.draw_font_selector(Renderer* self)
+{
+	int sw = rl::get_screen_width();
+	int sh = rl::get_screen_height();
+    
+	rl::draw_rectangle(0, 0, sw, sh, (rl::RLColor){ 0, 0, 0, 100 });
+	
+	int w = 400;
+	int h = 300;
+	int x = (sw / 2) - (w / 2);
+	int y = (sh / 2) - (h / 2);
+	
+	rl::draw_rectangle(x, y, w, h, rl::RAYWHITE);
+	rl::draw_rectangle_lines(x, y, w, h, rl::GRAY);
+	
+	rl::draw_text("Select Font", x + 10, y + 10, 20, rl::BLACK);
+    
+    int list_y = y + 40;
+    int item_h = 40;
+    
+    for (int i = 0; i < 5; i++)
+    {
+        int item_y = list_y + (i * item_h);
+        
+        if (i == self.current_font_idx)
+        {
+            rl::draw_rectangle(x + 10, item_y, w - 20, item_h, rl::SKYBLUE);
+        }
+        
+        // Check availability (dim unavailable custom fonts if necessary, though we fallback to default currently)
+        rl::RLColor col = rl::BLACK;
+        if (i > 1 && self.fonts[i].texture.id == 0) col = rl::GRAY;
+        
+        rl::draw_text((ZString)self.font_names[i], x + 20, item_y + 10, 20, col);
+    }
+    
+    rl::draw_text("Esc to Cancel", x + 10, y + h - 20, 10, rl::GRAY);
+}
 fn void Renderer.draw_file_browser(Renderer* self, editor::FileBrowser* browser, char* title, char* input_text)
 {
 	int sw = rl::get_screen_width();
@@ -357,8 +408,7 @@ fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id, editor::State* 
 		rl::draw_text("Show Preview", start_x + 30, start_y + 35, 20, rl::BLACK);
 		if (state.show_markdown_preview) rl::draw_text("x", start_x + 10, start_y + 35, 20, rl::DARKGREEN);
 		
-		rl::draw_text("Font:", start_x + 10, start_y + 65, 20, rl::BLACK);
-        rl::draw_text((ZString)self.font_names[self.current_font_idx], start_x + 60, start_y + 65, 20, rl::DARKGRAY);
+		rl::draw_text("Font", start_x + 30, start_y + 65, 20, rl::BLACK);
 	}
 	else if (menu_id == 4) // Help
 	{
@@ -378,6 +428,10 @@ fn void Renderer.draw_markdown_preview(Renderer* self, editor::State* state, int
 
     usz i = 0;
     usz len = state.buffer.len();
+    
+    // Explicitly set wrap limit based on passed width
+    // Subtract padding to ensure no overflow
+    int limit_x = start_x + width - 20;
 
     while (i < len)
     {
@@ -403,7 +457,7 @@ fn void Renderer.draw_markdown_preview(Renderer* self, editor::State* state, int
             if (doc != null) {
                 defer md::cmark_node_free(doc);
                 md::MDStyle st = {};
-                self.draw_markdown_nodes(doc, &cur_x, &cur_y, start_x, start_x + width, st);
+                self.draw_markdown_nodes(doc, &cur_x, &cur_y, start_x, limit_x, st);
             }
         }
         if (cur_y == old_y) { cur_y += self.font_size + 4; }
@@ -467,30 +521,38 @@ fn void Renderer.draw_markdown_nodes(Renderer* self, void* node, int* cur_x, int
                     else if (next_style.header_level == 3) { font_size = 28; }
                     else { font_size = 24; }
                 }
-                
-                if (next_style.is_code && type == md::CMARK_NODE_CODE)
-                {
-                     rl::RLVector2 v = rl::measure_text_ex(self.font, (ZString)text, (float)font_size, 1.0);
-                     int w = (int)v.x;
-                     rl::draw_rectangle(*cur_x, *cur_y, w, font_size + 2, rl::LIGHTGRAY);
-                }
-                
-                rl::RLVector2 main_v = rl::measure_text_ex(self.font, (ZString)text, (float)font_size, 1.0);
-                int w = (int)main_v.x;
-                
-                if (*cur_x + w > max_width && max_width > 0)
-                {
-                     *cur_x = start_x;
-                     *cur_y += font_size + 4;
-                }
 
-                if (next_style.is_bold)
-                {
-                    rl::draw_text_ex(self.font, (ZString)text, (rl::RLVector2){(float)(*cur_x + 1), (float)*cur_y}, (float)font_size, 1.0, color);
-                }
-                rl::draw_text_ex(self.font, (ZString)text, (rl::RLVector2){(float)*cur_x, (float)*cur_y}, (float)font_size, 1.0, color);
+                // Simple Character Wrap (Editor Style)
+                int text_len = 0; while(text[text_len]!=0) text_len++;
                 
-                *cur_x += w;
+                for (int k = 0; k < text_len; k++)
+                {
+                    char c = text[k];
+                    char[2] str_buf; 
+                    str_buf[0] = c; 
+                    str_buf[1] = 0;
+                    
+                    rl::RLVector2 v = rl::measure_text_ex(self.font, (ZString)&str_buf, (float)font_size, 1.0);
+                    int char_w = (int)v.x;
+                    
+                    if (*cur_x + char_w > max_width && max_width > 0 && *cur_x > start_x)
+                    {
+                         *cur_x = start_x;
+                         *cur_y += font_size + 4;
+                    }
+                    
+                    if (next_style.is_code && type == md::CMARK_NODE_CODE)
+                    {
+                        rl::draw_rectangle(*cur_x, *cur_y, char_w, font_size + 2, rl::LIGHTGRAY);
+                    }
+                    
+                    if (next_style.is_bold) {
+                        rl::draw_text_ex(self.font, (ZString)&str_buf, (rl::RLVector2){(float)(*cur_x + 1), (float)*cur_y}, (float)font_size, 1.0, color);
+                    }
+                    rl::draw_text_ex(self.font, (ZString)&str_buf, (rl::RLVector2){(float)*cur_x, (float)*cur_y}, (float)font_size, 1.0, color);
+                    
+                    *cur_x += char_w;
+                }
             }
         }
         else if (type == md::CMARK_NODE_SOFTBREAK)
