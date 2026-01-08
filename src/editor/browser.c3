@@ -10,12 +10,11 @@ struct FileBrowser
 	int selected_index;
 	int scroll_offset;
 	bool is_open;
-	bool is_save_mode; // true = Save, false = Open
+	bool is_save_mode;
 }
 
 fn void FileBrowser.init(FileBrowser *self)
 {
-	// Default to current directory
 	self.current_directory[0] = '.';
 	self.current_directory[1] = '/';
 	self.current_directory[2] = 0;
@@ -36,8 +35,6 @@ fn void FileBrowser.refresh(FileBrowser *self)
 
 fn void FileBrowser.up_dir(FileBrowser *self)
 {
-	// Simple navigation: append "../"
-	// A robust solution would normalize paths, for now we let the OS handle relative paths
 	usz len = 0;
 	while (self.current_directory[len] != 0) len++;
 	

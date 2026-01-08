@@ -14,7 +14,6 @@ fn void App.handle_editor_input(App *self)
 	bool ctrl = rl::is_key_down(rl::RLKeyboardKey.LEFT_CONTROL) || rl::is_key_down(rl::RLKeyboardKey.RIGHT_CONTROL);
 	bool shift = rl::is_key_down(rl::RLKeyboardKey.LEFT_SHIFT) || rl::is_key_down(rl::RLKeyboardKey.RIGHT_SHIFT);
 
-	// Text Input
 	while (true)
 	{
 		int key = rl::get_char_pressed();
@@ -22,15 +21,13 @@ fn void App.handle_editor_input(App *self)
 		if (!ctrl) state.insert_char((char)key);
 	}
 	
-	// Mouse Scroll
 	int wheel = (int)rl::get_mouse_wheel_move();
 	if (wheel != 0)
 	{
-		state.scroll_y -= wheel * 24; // Scroll by line height
+		state.scroll_y -= wheel * 24;
 		if (state.scroll_y < 0) state.scroll_y = 0;
 	}
 
-	// Mouse Interaction
 	int mx = rl::get_mouse_x();
 	int my = rl::get_mouse_y();
     int sw = rl::get_screen_width();
@@ -45,34 +42,23 @@ fn void App.handle_editor_input(App *self)
         }
         else
         {
-            // Calculate new scroll percent
-            // Need content height logic duplicated from renderer? Or store it in state?
-            // Duplicating simple logic for now
             int line_height = renderer.line_height;
             usz len = state.buffer.len();
             int line_count = 1;
-            // Optimization: we don't need exact line count if len is huge, but for now exact
-            // We can approximate or share this calculation later.
-            // Let's rely on renderer stored metrics if possible? No.
-            // Re-calc:
+            
             for (usz k = 0; k < len; k++) { if (state.buffer.get_char_at(k) == '\n') line_count++; }
             int content_h = line_count * line_height;
             int screen_h = rl::get_screen_height();
             
             if (content_h > screen_h)
             {
-                // Scrollbar track relative pos
-                int scroll_track_h = screen_h; // Simplification
+                int scroll_track_h = screen_h;
                 float view_ratio = (float)screen_h / (float)content_h;
                 int scroll_thumb_h = (int)(screen_h * view_ratio);
                  if (scroll_thumb_h < 30) scroll_thumb_h = 30;
                 
                 int track_avail = screen_h - scroll_thumb_h;
-                int mouse_relative = my - self.scrollbar_drag_y_offset; // Centered on click if offset set
-                
-                // Map mouse position in track to content position
-                // y = scroll_y / (content-screen) * (screen-thumb)
-                // scroll_y = y * (content-screen) / (screen-thumb)
+                int mouse_relative = my - self.scrollbar_drag_y_offset;
                 
                 float ratio = (float)mouse_relative / (float)track_avail;
                 if (ratio < 0.0) ratio = 0.0;
@@ -85,26 +71,21 @@ fn void App.handle_editor_input(App *self)
     
 	if (rl::is_mouse_button_pressed(rl::RLMouseButton.LEFT))
 	{
-		// Check Scrollbar Hit
         if (mx >= scrollbar_x && mx <= scrollbar_x + 15)
         {
             self.is_dragging_scrollbar = true;
-            self.scrollbar_drag_y_offset = 0; // Better logic needed for relative offset logic, 
-            // but for now jumping to mouse position is acceptable or we calculate where thumb is.
+            self.scrollbar_drag_y_offset = 0; 
         }
         else
         {
-            // Editor Click (Start Selection / Move Cursor)
-            // We assume menu handled its clicks earlier and returned false
             usz index = renderer.get_index_at_pos(state, mx, my, 50, 50);
             state.set_cursor_pos(index, shift);
         }
 	}
 	else if (rl::is_mouse_button_down(rl::RLMouseButton.LEFT) && my > 30 && !self.is_dragging_scrollbar)
 	{
-		// Mouse Selection Drag
 		usz index = renderer.get_index_at_pos(state, mx, my, 50, 50);
-		state.set_cursor_pos(index, true); // Dragging implies selecting
+		state.set_cursor_pos(index, true); 
 	}
 
 	// Keys

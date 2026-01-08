@@ -50,10 +50,8 @@ fn void GapBuffer.grow(GapBuffer *self)
 	usz new_capacity = self.capacity * 2;
 	char* new_data = (char*)mem::alloc_array(char, new_capacity);
 	
-	// Copy before gap
 	mem::move(new_data, self.data, self.gap_start);
 	
-	// Copy after gap to the end
 	usz right_len = self.capacity - self.gap_end;
 	mem::move(new_data + (new_capacity - right_len), self.data + self.gap_end, right_len);
 	
@@ -63,15 +61,12 @@ fn void GapBuffer.grow(GapBuffer *self)
 	self.capacity = new_capacity;
 }
 
-// Basic method to debug print content
 fn void GapBuffer.print_debug(GapBuffer *self)
 {
-	// Print pre-gap
 	io::printn("Buffer Content: ");
 	for (usz i = 0; i < self.gap_start; i++) {
 		io::printf("%c", self.data[i]);
 	}
-	// Print post-gap
 	for (usz i = self.gap_end; i < self.capacity; i++) {
 		io::printf("%c", self.data[i]);
 	}
@@ -84,7 +79,6 @@ fn void GapBuffer.move_gap(GapBuffer *self, usz new_pos)
 	
 	if (new_pos < self.gap_start)
 	{
-		// Move gap left
 		usz dist = self.gap_start - new_pos;
 		mem::move(self.data + self.gap_end - dist, self.data + new_pos, dist);
 		self.gap_start -= dist;
@@ -92,7 +86,6 @@ fn void GapBuffer.move_gap(GapBuffer *self, usz new_pos)
 	}
 	else if (new_pos > self.gap_start)
 	{
-		// Move gap right
 		usz dist = new_pos - self.gap_start;
 		mem::move(self.data + self.gap_start, self.data + self.gap_end, dist);
 		self.gap_start += dist;

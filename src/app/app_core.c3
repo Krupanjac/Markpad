@@ -12,15 +12,11 @@ struct App
 	gfx::Renderer renderer;
 	
 	int active_menu; 
-	// 0=None, 1=File, 2=Edit, 3=View, 4=Help
-	
 	int active_modal; 
-	// 0=None, 1=Open, 2=Save, 3=Browser(Open), 4=Browser(Save)
 	
 	char[256] input_buf;
 	int input_len;
 	
-    // Scrollbar interaction
     bool is_dragging_scrollbar;
     int scrollbar_drag_y_offset;
 
@@ -62,7 +58,6 @@ fn void App.update(App *self)
 {
 	editor::State* state = &self.state;
 
-	// --- Drag & Drop ---
 	if (rl::is_file_dropped())
 	{
 		rl::RLFilePathList dropped = rl::load_dropped_files();
@@ -80,7 +75,6 @@ fn void App.update(App *self)
 	}
 	else
 	{
-		// Normal Application Loop
 		bool input_handled = self.handle_menu_interaction();
 		if (!input_handled)
 		{
@@ -97,25 +91,15 @@ fn void App.draw(App *self)
 	
 	if (self.state.show_markdown_preview)
 	{
-		// Split screen
 		int sw = rl::get_screen_width();
 		int half_w = (sw / 2);
 		
-		// Draw Editor on Left (half width)
 		rl::begin_scissor_mode(0, 30, half_w, rl::get_screen_height() - 30);
-			// Pass half_w - 50 as view width (considering start_x)
-			// start_x (50) + width must equal right edge. 
-            // If view_width is relative width of component: 
-            // draw_buffer uses: max_width = view_width - 10
-            // and scroll_x = start_x + view_width - 15.
-            // So if start_x is 50, and we want right edge at half_w.
-            // view_width should be (half_w - 50)
 			self.renderer.draw_buffer(&self.state, 50, 50, half_w - 50); 
 		rl::end_scissor_mode();
 		
 		rl::draw_line(half_w, 30, half_w, rl::get_screen_height(), rl::GRAY);
 		
-		// Draw Preview on Right
 		rl::begin_scissor_mode(half_w, 30, half_w, rl::get_screen_height() - 30);
 			self.renderer.draw_markdown_preview(&self.state, half_w + 10, 50, half_w - 20);
 		rl::end_scissor_mode();

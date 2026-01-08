@@ -4,8 +4,6 @@ import markpad::editor;
 import markpad::gfx;
 import std::core::mem;
 
-// Handles Mouse clicks on Menu Bar and Dropdowns
-// Returns true if the input was consumed by the menu system
 fn bool App.handle_menu_interaction(App *self)
 {
 	int mx = rl::get_mouse_x();
@@ -16,33 +14,32 @@ fn bool App.handle_menu_interaction(App *self)
 	
 	bool clicked_menu_item = false;
 	
-	// Handle Dropdown Clicks if open
 	if (self.active_menu == 1) // File
 	{
 		if (mx >= 10 && mx <= 210 && my > 30 && my < 150)
 		{
 			clicked_menu_item = true;
-			self.active_menu = 0; // Close dropdown after selection
+			self.active_menu = 0; 
 			
-			if (my < 60) { // New
+			if (my < 60) {
 				self.state.init();
-			} else if (my < 90) { // Open
-				self.active_modal = 3; // Browser Open
+			} else if (my < 90) {
+				self.active_modal = 3; 
 				self.browser.refresh();
 				self.input_len = 0; 
 				self.input_buf[0] = 0; 
-			} else if (my < 120) { // Save
+			} else if (my < 120) {
 				if (self.state.current_file != null) 
 				{
 					self.state.save_file();
 				}
 				else {
-					self.active_modal = 4; // Browser Save
+					self.active_modal = 4;
 					self.browser.refresh();
 					self.input_len = 0;
 					self.input_buf[0] = 0;
 				}
-			} else { // Exit
+			} else {
 				self.quit = true;
 			}
 			return true;
@@ -69,7 +66,6 @@ fn bool App.handle_menu_interaction(App *self)
 		}
 	}
 	
-	// Check Menu Bar Hits using coordinates from main.c3 logic
 	if (my <= 30)
 	{
 		if (mx >= 10 && mx <= 55) {
@@ -81,16 +77,13 @@ fn bool App.handle_menu_interaction(App *self)
 		} else if (mx >= 160 && mx <= 205) {
 			self.active_menu = (self.active_menu == 4) ? 0 : 4;
 		} else {
-			self.active_menu = 0; // Clicked on empty space in bar
+			self.active_menu = 0; 
 		}
-		return true; // Click was on menu bar, so consumed
+		return true; 
 	}
 	
-	// If menu was active but we clicked outside (and not on bar), close it
 	if (self.active_menu > 0) {
 		self.active_menu = 0;
-		// Do not return true, let the click pass through to editor
-		// This matches "clicking away" behavior
 	}
 
 	return false;

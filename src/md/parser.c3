@@ -1,14 +1,6 @@
 module markpad::md;
 import std::core::mem;
 
-/*
-    Markdown Parser bindings for CommonMark (libcmark)
-    Replacing custom scanner.
-*/
-
-// --- CMark Bindings ---
-// Using void* for opaque C types to avoid C3 definition issues.
-
 extern fn char* cmark_markdown_to_html(char* text, usz len, int options);
 extern fn void* cmark_parse_document(char* buffer, usz len, int options);
 extern fn void cmark_node_free(void* node);
@@ -33,7 +25,6 @@ extern fn void* cmark_node_parent(void* node);
 extern fn void* cmark_node_first_child(void* node);
 extern fn void* cmark_node_last_child(void* node);
 
-// Node Types
 const int CMARK_NODE_NONE = 0;
 const int CMARK_NODE_DOCUMENT = 1;
 const int CMARK_NODE_BLOCK_QUOTE = 2;
@@ -56,8 +47,6 @@ const int CMARK_NODE_STRONG = 18;
 const int CMARK_NODE_LINK = 19;
 const int CMARK_NODE_IMAGE = 20;
 
-// --- Legacy Style Helper ---
-
 struct MDStyle
 {
     bool is_header;
@@ -71,7 +60,6 @@ struct MDStyle
     bool is_link;
 }
 
-// Helper to recursively check for inline styles
 fn void check_inline_styles(void* node, MDStyle* style)
 {
     while (node != null)
@@ -82,9 +70,7 @@ fn void check_inline_styles(void* node, MDStyle* style)
         if (type == CMARK_NODE_EMPH) style.is_italic = true;
         if (type == CMARK_NODE_CODE) style.is_code = true;
         if (type == CMARK_NODE_LINK) style.is_link = true;
-        // cmark doesn't support strikethrough by default
         
-        // Recurse into children
         void* child = cmark_node_first_child(node);
         if (child != null) 
         {
@@ -95,20 +81,15 @@ fn void check_inline_styles(void* node, MDStyle* style)
     }
 }
 
-// Check the style of a line (using cmark to parse the single line)
 fn MDStyle check_line_style(char* line_start, usz len)
 {
     MDStyle style = {};
     if (len == 0) return style;
 
-    // Parse the line as a document
-    // Note: This is inefficient but compatible with the old API.
-    // In the future, we should probably parse the whole doc.
     void* root = cmark_parse_document(line_start, len, 0);
     if (root == null) return style;
     defer cmark_node_free(root);
 
-    // Get the first child of the document
     void* child = cmark_node_first_child(root);
     if (child == null) return style;
 
@@ -137,7 +118,6 @@ fn MDStyle check_line_style(char* line_start, usz len)
     }
     else if (type == CMARK_NODE_PARAGRAPH)
     {
-        // Traverse inline nodes deeply
         void* inline_node = cmark_node_first_child(child);
         check_inline_styles(inline_node, &style);
     }

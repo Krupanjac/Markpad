@@ -7,15 +7,12 @@ struct State
 {
 	GapBuffer buffer;
 	int scroll_y;
-	// Path to current file, null if new
 	char* current_file;
 	
-	// Selection: Anchor is where selection started, buffer.gap_start is where it ends (caret)
 	usz selection_anchor;
 	bool word_wrap;
 	
-	// Markdown features
-	bool show_markdown_preview; // Split-screen preview
+	bool show_markdown_preview; 
 }
 
 fn void State.init(State *self)
