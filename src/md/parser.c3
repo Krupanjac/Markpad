@@ -61,6 +61,7 @@ struct MDStyle
     
     int list_depth;
     int quote_depth;
+    char[32] list_prefix;
 }
 
 fn void check_inline_styles(void* node, MDStyle* style)
