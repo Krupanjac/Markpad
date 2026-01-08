@@ -23,9 +23,9 @@ fn void Renderer.init(Renderer* self)
     
 	self.fonts[1] = rl::load_font_ex("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 32, (int*)0, 0);
     if (self.fonts[1].texture.id == 0) self.fonts[1] = rl::get_font_default();
-    self.font_names[1] = "System (DejaVu)";
+    self.font_names[1] = "DejaVu";
     
-    self.fonts[2] = rl::load_font_ex("resources/Fira/FiraCode-Regular.ttf", 32, (int*)0, 0);
+    self.fonts[2] = rl::load_font_ex("resources/Fira/FiraCode-Bold.ttf", 32, (int*)0, 0);
     self.font_names[2] = "Fira Code";
     
     self.fonts[3] = rl::load_font_ex("resources/JetBrainsMono/JetBrainsMono-Regular.ttf", 32, (int*)0, 0);
