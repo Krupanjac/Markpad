@@ -1,30 +1,41 @@
 # Markpad
 
-Markpad is a lightweight, efficient text editor built using the [C3 programming language](https://c3-lang.org/) and [Raylib](https://www.raylib.com/). It aims to provide a text editor experience with a focus on performance and simplicity.
+Markpad is a lightweight Markdown editor built using the [C3 programming language](https://c3-lang.org/) and [Raylib](https://www.raylib.com/). It aims to provide a performant writing environment with real-time preview capabilities.
+
+**Note:** This is a personal pet project created to explore the capabilities of C3 in a GUI application.
+***README.md*** is written using **Markpad.**
 
 ## Features
 
-- **Efficient Text Management**: Implements a Gap Buffer data structure for fast text insertion and deletion.
-- **Raylib Rendering**: Custom text rendering engine built on top of Raylib 5.5.
-- **Standard Editor Controls**: 
-  - File Operations: Open, Save, Save As (via modal dialogs).
-  - Editing: Cut, Copy, Paste, Select All.
-  - Navigation: Arrow keys, Mouse click placement, Drag selection.
-- **UI Elements**:
-  - Menu Bar (File, Edit, View, Help).
-  - Modal Dialogs for file paths.
-  - Dynamic Word Wrapping.
+- **Live Markdown Preview**:
+  - Split-screen editing with real-time rendering.
+  - Powered by `libcmark` (CommonMark compliant).
+  - Supports Headers, Blockquotes, Nested Lists (Ordered/Unordered), Code Blocks, and visual separators.
+  - Typography support for **Bold**, *Italic*, and `Inline Code`.
+- **Core Editor Engine**: 
+  - Implements a **Gap Buffer** for O(1) text insertion and deletion at the cursor.
+  - Custom text rendering engine built on Raylib 5.5.
+  - Dynamic, strictly-wrapped text layout.
+- **Customization**:
+  - Bundled developer fonts: **Fira Code**, **JetBrains Mono**, **Cascadia Code**, and **DejaVu Sans**.
+  - Toggleable view settings.
+- **UI & Tools**:
+  - File Browser for opening/saving files.
+  - Interactive scrollbar.
+  - Standard clipboard operations (Cut, Copy, Paste).
 
 ## Requirements
 
-- **C3 Compiler**: Version 0.7.9 or later.
-- **Raylib 5.5**: The project uses the vendorized bindings or library.
+- **C3 Compiler**: Latest stable version.
+- **Dependencies**: 
+  - `Raylib 5.5` (bindings included).
+  - `libcmark` (dynamic link required).
 
 ## Building and Running
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/Krupanjac/Markpad.git
+   git clone https://github.com/krupanjac/Markpad.git
    cd Markpad
    ```
 

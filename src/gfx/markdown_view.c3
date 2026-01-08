@@ -90,6 +90,9 @@ fn void Renderer.draw_markdown_nodes(Renderer* self, void* node, int* cur_x, int
              child_start_x += 25;
              int y_start = *cur_y;
              
+             // Sync cursor logic to new indentation
+             *cur_x = child_start_x;
+             
              void* child = md::cmark_node_first_child(n);
              if (child != null) self.draw_markdown_nodes(child, cur_x, cur_y, child_start_x, max_width, next_style);
              visit_children = false; 
@@ -108,6 +111,9 @@ fn void Renderer.draw_markdown_nodes(Renderer* self, void* node, int* cur_x, int
              next_style.list_depth++;
              child_start_x += 25; 
              
+             // Sync cursor logic to new indentation so first item doesn't force newline
+             *cur_x = child_start_x;
+
              void* child = md::cmark_node_first_child(n);
              if (child != null) self.draw_markdown_nodes(child, cur_x, cur_y, child_start_x, max_width, next_style);
              visit_children = false;
@@ -124,14 +130,18 @@ fn void Renderer.draw_markdown_nodes(Renderer* self, void* node, int* cur_x, int
              
              if (ptype == 1) 
              {
-                 rl::draw_circle(start_x - 12, *cur_y + (self.font_size / 2) + 2, 3.0, rl::BLACK);
+                 rl::draw_circle(start_x - 12, *cur_y + (self.font_size / 2), 3.0, rl::BLACK);
                  mem::set(&next_style.list_prefix, 0, 32);
              }
              else 
              {
                  int idx = start_num;
                  void* prev = md::cmark_node_previous(n);
-                 while(prev != null) { idx++; prev = md::cmark_node_previous(prev); }
+                 while(prev != null) 
+                 { 
+                      if (md::cmark_node_get_type(prev) == md::CMARK_NODE_ITEM) idx++; 
+                      prev = md::cmark_node_previous(prev); 
+                 }
                  
                  char[32] num_str;
                  mem::set(&num_str, 0, 32);
