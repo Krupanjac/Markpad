@@ -26,6 +26,14 @@ fn void State.init(State *self)
 	self.show_markdown_preview = true;
 }
 
+fn void State.free(State* self)
+{
+	self.buffer.free();
+	if (self.current_file != null) {
+		mem::free(self.current_file);
+	}
+}
+
 fn void State.insert_char(State *self, char c)
 {
 	self.delete_selection();

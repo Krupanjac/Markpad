@@ -22,6 +22,14 @@ fn void FileBrowser.init(FileBrowser *self)
 	self.refresh();
 }
 
+fn void FileBrowser.free(FileBrowser *self)
+{
+	if (self.files.count > 0)
+	{
+		rl::unload_directory_files(self.files);
+	}
+}
+
 fn void FileBrowser.refresh(FileBrowser *self)
 {
 	if (self.files.count > 0)

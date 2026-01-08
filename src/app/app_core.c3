@@ -49,8 +49,14 @@ fn void App.run(App *self)
 		self.update();
 		self.draw();
 	}
-
+    
+    self.renderer.free();
+    self.browser.free();
+    
 	platform::close_window();
+    
+    self.state.free();
+    
 	io::printn("Markpad exited.");
 }
 

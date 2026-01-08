@@ -42,6 +42,19 @@ fn void Renderer.init(Renderer* self)
     self.recalc_metrics();
 }
 
+fn void Renderer.free(Renderer* self)
+{
+    // Index 0 is default font, we don't own it.
+    // Indexes 1-4 are loaded fonts, unless they failed load and are copies of default.
+    for (int i = 1; i < 5; i++)
+    {
+        if (self.fonts[i].texture.id != self.fonts[0].texture.id)
+        {
+            rl::unload_font(self.fonts[i]);
+        }
+    }
+}
+
 fn void Renderer.recalc_metrics(Renderer* self)
 {
     rl::RLVector2 v = rl::measure_text_ex(self.font, "M", (float)self.font_size, 1.0);
