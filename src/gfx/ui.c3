@@ -146,8 +146,9 @@ fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id, editor::State* 
 	int start_y = 30;
 	int width = 200;
 	int item_height = 30;
-	
-	if (menu_id == 1) // File
+
+   switch(menu_id){
+       case 1: // File
 	{
 		start_x = 10;
 		int height = item_height * 4;
@@ -159,7 +160,8 @@ fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id, editor::State* 
 		rl::draw_text("Save       Ctrl+S", start_x + 10, start_y + 65, 20, rl::BLACK);
 		rl::draw_text("Exit", start_x + 10, start_y + 95, 20, rl::BLACK);
 	}
-	else if (menu_id == 2) // Edit
+	
+    case 2: // Edit
 	{
 		start_x = 60;
 		int height = item_height * 4;
@@ -171,8 +173,8 @@ fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id, editor::State* 
 		rl::draw_text("Paste      Ctrl+V", start_x + 10, start_y + 65, 20, rl::BLACK);
 		rl::draw_text("Select All Ctrl+A", start_x + 10, start_y + 95, 20, rl::BLACK);
 	}
-	else if (menu_id == 3) // View
-	{
+    case 3: // View
+        {
 		start_x = 110;
 		int height = item_height * 3;
 		rl::draw_rectangle(start_x, start_y, width, height, rl::RAYWHITE);
@@ -186,7 +188,8 @@ fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id, editor::State* 
 		
 		rl::draw_text("Font", start_x + 30, start_y + 65, 20, rl::BLACK);
 	}
-	else if (menu_id == 4) // Help
+	
+        case 4: // Help
 	{
 		start_x = 160;
 		int height = item_height * 1;
@@ -195,4 +198,7 @@ fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id, editor::State* 
 		
 		rl::draw_text("About", start_x + 10, start_y + 5, 20, rl::BLACK);
 	}
+        default:
+            break;
+}
 }

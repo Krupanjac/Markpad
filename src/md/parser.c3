@@ -99,32 +99,26 @@ fn MDStyle check_line_style(char* line_start, usz len)
 
     int type = cmark_node_get_type(child);
 
-    if (type == CMARK_NODE_HEADING)
-    {
+   switch(type) {
+        case CMARK_NODE_HEADING: 
         style.is_header = true;
         style.header_level = cmark_node_get_heading_level(child);
-    }
-    else if (type == CMARK_NODE_BLOCK_QUOTE)
-    {
+    case CMARK_NODE_BLOCK_QUOTE:
         style.is_quote = true;
-    }
-    else if (type == CMARK_NODE_LIST)
-    {
+    case CMARK_NODE_LIST:
         style.is_list_item = true;
-    }
-    else if (type == CMARK_NODE_ITEM)
-    {
+    case CMARK_NODE_ITEM:
         style.is_list_item = true;
-    }
-    else if (type == CMARK_NODE_CODE_BLOCK)
-    {
+    case CMARK_NODE_CODE_BLOCK:
         style.is_code = true;
-    }
-    else if (type == CMARK_NODE_PARAGRAPH)
-    {
+    case CMARK_NODE_PARAGRAPH:
         void* inline_node = cmark_node_first_child(child);
         check_inline_styles(inline_node, &style);
+    default:
+        break;
+
     }
+
 
     return style;
 }
