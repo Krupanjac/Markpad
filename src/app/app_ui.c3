@@ -61,6 +61,9 @@ fn bool App.handle_menu_interaction(App *self)
 			else if (my < 120) {
 				self.active_modal = 5; // Font Selector
 			}
+			else if (my < 150) {
+				self.state.independent_scroll = !self.state.independent_scroll;
+			}
 			
 			return true;
 		}

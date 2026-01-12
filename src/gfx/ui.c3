@@ -176,7 +176,7 @@ fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id, editor::State* 
     case 3: // View
         {
 		start_x = 110;
-		int height = item_height * 3;
+		int height = item_height * 4;
 		rl::draw_rectangle(start_x, start_y, width, height, rl::RAYWHITE);
 		rl::draw_rectangle_lines(start_x, start_y, width, height, rl::GRAY);
 		
@@ -187,6 +187,9 @@ fn void Renderer.draw_menu_dropdown(Renderer* self, int menu_id, editor::State* 
 		if (state.show_markdown_preview) rl::draw_text("x", start_x + 10, start_y + 35, 20, rl::DARKGREEN);
 		
 		rl::draw_text("Font", start_x + 30, start_y + 65, 20, rl::BLACK);
+
+		rl::draw_text("Indep. Scroll", start_x + 30, start_y + 95, 20, rl::BLACK);
+		if (state.independent_scroll) rl::draw_text("x", start_x + 10, start_y + 95, 20, rl::DARKGREEN);
 	}
 	
         case 4: // Help

@@ -124,24 +124,24 @@ fn void Renderer.draw_buffer(Renderer* self, editor::State* state, int start_x, 
 		rl::draw_rectangle(cur_x, cur_y, 2, self.line_height, rl::RED);
 	}
 
-    int screen_h = rl::get_screen_height();
-    int content_h = 0; 
+	int screen_h = rl::get_screen_height();
     
-    int line_count = 1;
-    for (usz k = 0; k < len; k++) { if (buffer.get_char_at(k) == '\n') line_count++; }
-    content_h = line_count * self.line_height;
+    // Calculate accurate content height using the final cursor position
+    int content_h = cur_y - (start_y - state.scroll_y) + self.line_height; 
+    state.editor_content_height = content_h;
+    
     if (content_h < screen_h) content_h = screen_h;
 
-    float view_ratio = (float)screen_h / (float)content_h;
-    if (view_ratio < 1.0)
-    {
-        int scroll_h = (int)(screen_h * view_ratio);
-        if (scroll_h < 30) scroll_h = 30;
-        int scroll_y = (int)((float)state.scroll_y / (float)(content_h - screen_h) * (float)(screen_h - scroll_h));
-        
-        int scroll_x = start_x + view_width - 15;
+	float view_ratio = (float)screen_h / (float)content_h;
+	if (view_ratio < 1.0)
+	{
+		int scroll_h = (int)(screen_h * view_ratio);
+		if (scroll_h < 30) scroll_h = 30;
+		int scroll_y = (int)((float)state.scroll_y / (float)(content_h - screen_h) * (float)(screen_h - scroll_h));
+		
+		int scroll_x = start_x + view_width - 15;
 
-        rl::draw_rectangle(scroll_x, 0, 15, screen_h, (rl::RLColor){240, 240, 240, 255});
-        rl::draw_rectangle(scroll_x + 2, scroll_y, 11, scroll_h, rl::DARKGRAY);
-    }
+		rl::draw_rectangle(scroll_x, 0, 15, screen_h, (rl::RLColor){240, 240, 240, 255});
+		rl::draw_rectangle(scroll_x + 2, scroll_y, 11, scroll_h, rl::DARKGRAY);
+	}
 }

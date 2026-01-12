@@ -29,13 +29,36 @@ fn void Renderer.draw_markdown_preview(Renderer* self, editor::State* state, int
     defer md::cmark_node_free(root);
     
     int cur_x = start_x;
-    int cur_y = start_y - state.scroll_y;
+    int use_scroll = state.independent_scroll ? state.scroll_y_preview : state.scroll_y;
+    int cur_y = start_y - use_scroll;
     int limit_x = start_x + width - 20;
 
     md::MDStyle base_style = {};
     mem::set(&base_style.list_prefix, 0, 32); 
     
     self.draw_markdown_nodes(root, &cur_x, &cur_y, start_x, limit_x, base_style);
+    
+    // Calculate content height logic for scrollbar
+    int content_h = cur_y - (start_y - use_scroll) + 50; // + padding
+    state.preview_content_height = content_h;
+    
+    int screen_h = rl::get_screen_height();
+    if (content_h < screen_h) content_h = screen_h;
+    
+    // Draw Preview Scrollbar
+    float view_ratio = (float)screen_h / (float)content_h;
+    if (view_ratio < 1.0)
+    {
+        int scroll_h = (int)(screen_h * view_ratio);
+        if (scroll_h < 30) scroll_h = 30;
+        
+        int draw_scroll_y = (int)((float)use_scroll / (float)(content_h - screen_h) * (float)(screen_h - scroll_h));
+        
+        int scroll_x = start_x + width; // Right edge
+        
+        rl::draw_rectangle(scroll_x, 0, 15, screen_h, (rl::RLColor){240, 240, 240, 255});
+        rl::draw_rectangle(scroll_x + 2, draw_scroll_y, 11, scroll_h, rl::DARKGRAY);
+    }
 }
 
 fn void Renderer.draw_markdown_nodes(Renderer* self, void* node, int* cur_x, int* cur_y, int start_x, int max_width, md::MDStyle style)

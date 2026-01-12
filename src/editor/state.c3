@@ -14,6 +14,14 @@ struct State
 	bool word_wrap;
 	
 	bool show_markdown_preview; 
+
+	// Independent Scrolling
+	bool independent_scroll;
+	int scroll_y_preview;
+	
+	// Cached content heights for scrolling limits
+	int editor_content_height;
+	int preview_content_height;
 }
 
 fn void State.init(State *self)
@@ -25,6 +33,11 @@ fn void State.init(State *self)
 	self.word_wrap = false;
 	
 	self.show_markdown_preview = true;
+
+	self.independent_scroll = false;
+	self.scroll_y_preview = 0;
+	self.editor_content_height = 0;
+	self.preview_content_height = 0;
 }
 
 fn void State.free(State* self)

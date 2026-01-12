@@ -21,19 +21,60 @@ fn void App.handle_editor_input(App *self)
 		if (!ctrl) state.insert_char((char)key);
 	}
 	
-	int wheel = (int)rl::get_mouse_wheel_move();
-	if (wheel != 0)
-	{
-		state.scroll_y -= wheel * 24;
-		if (state.scroll_y < 0) state.scroll_y = 0;
-	}
-
+	int user_wheel = (int)rl::get_mouse_wheel_move();
 	int mx = rl::get_mouse_x();
 	int my = rl::get_mouse_y();
     int sw = rl::get_screen_width();
-    int scrollbar_x = sw - 15;
-    if (state.show_markdown_preview) scrollbar_x = (sw / 2) - 15;
+    int screen_h = rl::get_screen_height();
+    
+    // Determine scroll limits
+    int max_scroll_edit = state.editor_content_height - screen_h;
+    if (max_scroll_edit < 0) max_scroll_edit = 0;
+    
+    int max_scroll_prev = state.preview_content_height - screen_h;
+    if (max_scroll_prev < 0) max_scroll_prev = 0;
+    
+    // Wheel Scrolling
+	if (user_wheel != 0)
+	{
+        if (state.independent_scroll && state.show_markdown_preview)
+        {
+             // Independent Mode
+             if (mx > sw / 2)
+             {
+                 state.scroll_y_preview -= user_wheel * 24;
+                 if (state.scroll_y_preview < 0) state.scroll_y_preview = 0;
+                 if (state.scroll_y_preview > max_scroll_prev) state.scroll_y_preview = max_scroll_prev;
+             }
+             else
+             {
+                 state.scroll_y -= user_wheel * 24;
+                 if (state.scroll_y < 0) state.scroll_y = 0;
+                 if (state.scroll_y > max_scroll_edit) state.scroll_y = max_scroll_edit;
+             }
+        }
+        else
+        {
+             // Synced Mode (or no preview)
+             int limit = max_scroll_edit;
+             if (state.show_markdown_preview && max_scroll_prev > limit) limit = max_scroll_prev; // "dictates length"
+             
+             state.scroll_y -= user_wheel * 24;
+             if (state.scroll_y < 0) state.scroll_y = 0;
+             if (state.scroll_y > limit) state.scroll_y = limit;
+             
+             // Sync preview
+             state.scroll_y_preview = state.scroll_y;
+        }
+	}
+
+    int editor_scrollbar_x = sw - 15;
+    if (state.show_markdown_preview) editor_scrollbar_x = (sw / 2) - 15;
+    
+    // Preview scrollbar is at the right edge
+    int preview_scrollbar_x = sw - 15; 
 	
+    // 1. Handle Editor Scrollbar Drag
     if (self.is_dragging_scrollbar)
     {
         if (rl::is_mouse_button_up(rl::RLMouseButton.LEFT))
@@ -42,20 +83,24 @@ fn void App.handle_editor_input(App *self)
         }
         else
         {
-            int line_height = renderer.line_height;
-            usz len = state.buffer.len();
-            int line_count = 1;
-            
-            for (usz k = 0; k < len; k++) { if (state.buffer.get_char_at(k) == '\n') line_count++; }
-            int content_h = line_count * line_height;
-            int screen_h = rl::get_screen_height();
-            
-            if (content_h > screen_h)
+            int content_h = state.editor_content_height;
+            // Use limits logic
+            int limit = content_h - screen_h;
+            if (!state.independent_scroll && state.show_markdown_preview)
+            {
+               // In synced mode, we might drag past editor content if preview is longer
+               if (state.preview_content_height > content_h) limit = state.preview_content_height - screen_h;
+            }
+
+            if (content_h > screen_h || limit > 0)
             {
                 int scroll_track_h = screen_h;
-                float view_ratio = (float)screen_h / (float)content_h;
+                // Calculate thumb size based on ratio of viewport to content
+                int effective_content_h = (limit + screen_h);
+                float view_ratio = (float)screen_h / (float)effective_content_h;
+                
                 int scroll_thumb_h = (int)(screen_h * view_ratio);
-                 if (scroll_thumb_h < 30) scroll_thumb_h = 30;
+                if (scroll_thumb_h < 30) scroll_thumb_h = 30;
                 
                 int track_avail = screen_h - scroll_thumb_h;
                 int mouse_relative = my - self.scrollbar_drag_y_offset;
@@ -64,17 +109,61 @@ fn void App.handle_editor_input(App *self)
                 if (ratio < 0.0) ratio = 0.0;
                 if (ratio > 1.0) ratio = 1.0;
                 
-                state.scroll_y = (int)(ratio * (float)(content_h - screen_h));
+                state.scroll_y = (int)(ratio * (float)limit);
+                if (!state.independent_scroll) state.scroll_y_preview = state.scroll_y;
             }
+        }
+    }
+    // 2. Handle Preview Scrollbar Drag
+    else if (self.is_dragging_preview_scrollbar)
+    {
+        if (rl::is_mouse_button_up(rl::RLMouseButton.LEFT))
+        {
+            self.is_dragging_preview_scrollbar = false;
+        }
+        else
+        {
+             int content_h = state.preview_content_height;
+             if (content_h > screen_h)
+             {
+                 float view_ratio = (float)screen_h / (float)content_h;
+                 int scroll_thumb_h = (int)(screen_h * view_ratio);
+                 if (scroll_thumb_h < 30) scroll_thumb_h = 30;
+                 
+                 int track_avail = screen_h - scroll_thumb_h;
+                 int mouse_relative = my - self.scrollbar_drag_y_offset;
+                 float ratio = (float)mouse_relative / (float)track_avail;
+                 if (ratio < 0.0) ratio = 0.0;
+                 if (ratio > 1.0) ratio = 1.0;
+                 
+                 int val = (int)(ratio * (float)(content_h - screen_h));
+                 
+                 if (state.independent_scroll) {
+                     state.scroll_y_preview = val;
+                 } else {
+                     // If we allow dragging preview scrollbar in synced mode, it drags both?
+                     // Usually dragging right bar should drag both.
+                     // But we should respect the "dictates length" rule.
+                     state.scroll_y = val;
+                     state.scroll_y_preview = val;
+                 }
+             }
         }
     }
     
 	if (rl::is_mouse_button_pressed(rl::RLMouseButton.LEFT))
 	{
-        if (mx >= scrollbar_x && mx <= scrollbar_x + 15)
+        // Hit Test Editor Scrollbar
+        if (mx >= editor_scrollbar_x && mx <= editor_scrollbar_x + 15)
         {
             self.is_dragging_scrollbar = true;
             self.scrollbar_drag_y_offset = 0; 
+        }
+        // Hit Test Preview Scrollbar (only if visible)
+        else if (state.show_markdown_preview && mx >= preview_scrollbar_x && mx <= sw) 
+        {
+             self.is_dragging_preview_scrollbar = true;
+             self.scrollbar_drag_y_offset = 0;
         }
         else
         {
@@ -82,7 +171,7 @@ fn void App.handle_editor_input(App *self)
             state.set_cursor_pos(index, shift);
         }
 	}
-	else if (rl::is_mouse_button_down(rl::RLMouseButton.LEFT) && my > 30 && !self.is_dragging_scrollbar)
+	else if (rl::is_mouse_button_down(rl::RLMouseButton.LEFT) && my > 30 && !self.is_dragging_scrollbar && !self.is_dragging_preview_scrollbar)
 	{
 		usz index = renderer.get_index_at_pos(state, mx, my, 50, 50);
 		state.set_cursor_pos(index, true); 

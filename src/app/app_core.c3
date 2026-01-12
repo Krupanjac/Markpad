@@ -18,6 +18,7 @@ struct App
 	int input_len;
 	
     bool is_dragging_scrollbar;
+    bool is_dragging_preview_scrollbar;
     int scrollbar_drag_y_offset;
 
 	bool quit;
@@ -35,6 +36,7 @@ fn void App.init(App *self)
 	self.active_modal = 0;
 	self.input_len = 0;
     self.is_dragging_scrollbar = false;
+    self.is_dragging_preview_scrollbar = false;
     self.scrollbar_drag_y_offset = 0;
 	self.quit = false;
 	for (int i = 0; i < 256; i++) self.input_buf[i] = 0;
