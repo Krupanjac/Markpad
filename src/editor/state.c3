@@ -1,5 +1,6 @@
 module markpad::editor;
 import std::io;
+import std::io::file;
 import std::core::mem;
 import raylib55::rl;
 
@@ -252,31 +253,56 @@ fn void State.save_file(State *self)
 
 fn void State.load_file(State *self, char* filename)
 {
-	char* text = (char*)rl::load_file_text((ZString)filename);
-	if (text == null) return;
-	
-	self.buffer.free();
-	
-	usz len = 0;
-	while (text[len] != 0) len++;
-	
-	// Init with extra capacity
-	self.buffer.init(len + 1024);
-	
-	// Copy text to buffer start
-	mem::copy(self.buffer.data, text, len);
-	self.buffer.gap_start = len;
-	self.buffer.gap_end = self.buffer.capacity; // Gap at end
-	
-	rl::unload_file_text((ZString)text);
-	
-	if (self.current_file) mem::free(self.current_file);
-	
-	// Copy filename
+	// Calculate filename length for String slice and storage
 	usz fn_len = 0;
 	while (filename[fn_len] != 0) fn_len++;
+	String path = (String)filename[0..fn_len];
+
+	// Optimizer: Use std::io::file to avoid double-allocation by Raylib
+	usz? size_res = file::get_size(path);
+	if (catch err = size_res)
+	{
+		io::eprintfn("Error getting file size for %s: %s", path, err);
+		return;
+	}
+	usz size = size_res;
+
+	// Open file
+	File? file_res = file::open(path, "r");
+	if (catch err = file_res)
+	{
+		io::eprintfn("Error opening file: %s", err);
+		return;
+	}
+	File f = file_res;
+	defer (void)f.close();
+
+	// Reset and alloc buffer directly
+	self.buffer.free();
+	self.buffer.init(size + 1024); // File size + gap space
+
+	// Read directly into buffer data
+	// C3 slices verify bounds, so we create a slice of the exact size we want to read
+	char[] buf_slice = self.buffer.data[0..size];
+	
+	usz? read_res = f.read(buf_slice);
+	if (catch err = read_res)
+	{
+		io::eprintfn("Error reading file: %s", err);
+		self.buffer.init(1024); // Fallback to empty
+		return;
+	}
+	
+	usz read_bytes = read_res;
+
+	// Setup gap at the end
+	self.buffer.gap_start = read_bytes;
+	self.buffer.gap_end = self.buffer.capacity;
+	
+	// Update current_file
+	if (self.current_file) mem::free(self.current_file);
 	self.current_file = (char*)mem::alloc_array(char, fn_len + 1);
 	mem::copy(self.current_file, filename, fn_len + 1);
-	
-	io::printn("Loaded file.");
+
+	io::printfn("Loaded file optimized: %d bytes", read_bytes);
 }
