@@ -40,6 +40,50 @@ fn void Renderer.draw_modal(Renderer* self, char* title, char* input_text)
 	rl::draw_text("Enter to Confirm, Esc to Cancel", x + 10, y + 90, 10, rl::GRAY);
 }
 
+fn void Renderer.draw_about_modal(Renderer* self)
+{
+	int sw = rl::get_screen_width();
+	int sh = rl::get_screen_height();
+    
+	rl::draw_rectangle(0, 0, sw, sh, (rl::RLColor){ 0, 0, 0, 100 });
+	
+	int w = 500;
+	int h = 400;
+	int x = (sw / 2) - (w / 2);
+	int y = (sh / 2) - (h / 2);
+	
+	rl::draw_rectangle(x, y, w, h, rl::RAYWHITE);
+	rl::draw_rectangle_lines(x, y, w, h, rl::GRAY);
+	
+	int content_x = x + 20;
+	int content_y = y + 20;
+	
+	rl::draw_text("Markpad", content_x, content_y, 40, rl::BLACK);
+	content_y += 50;
+	
+	rl::draw_text("Version: 0.1.0", content_x, content_y, 20, rl::DARKGRAY);
+	content_y += 30;
+	
+	rl::draw_text("A lightweight, dual-pane Markdown editor.", content_x, content_y, 20, rl::BLACK);
+	content_y += 30;
+	
+	rl::draw_text("Built with C3, Raylib 5.5, and libcmark.", content_x, content_y, 20, rl::BLACK);
+	content_y += 40;
+	
+	rl::draw_text("Features:", content_x, content_y, 20, rl::BLACK);
+	content_y += 25;
+	rl::draw_text("- Gap Buffer Optimization", content_x + 10, content_y, 10, rl::DARKGRAY); content_y += 15;
+	rl::draw_text("- Real-time Preview (Static cmark)", content_x + 10, content_y, 10, rl::DARKGRAY); content_y += 15;
+	rl::draw_text("- Custom Font Support", content_x + 10, content_y, 10, rl::DARKGRAY); content_y += 15;
+	
+	content_y += 25;
+	rl::draw_text("Author: Arsen Durdev <contact@krupanjac.dev>", content_x, content_y, 10, rl::GRAY);
+	content_y += 15;
+    rl::draw_text("License: MIT", content_x, content_y, 10, rl::GRAY);
+
+	rl::draw_text("Press Esc to close", x + 10, y + h - 20, 10, rl::GRAY);
+}
+
 fn void Renderer.draw_font_selector(Renderer* self)
 {
 	int sw = rl::get_screen_width();

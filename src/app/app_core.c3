@@ -131,6 +131,10 @@ fn void App.draw(App *self)
             {
                 self.renderer.draw_font_selector();
             }
+            else if (self.active_modal == 6)
+            {
+                self.renderer.draw_about_modal();
+            }
             else
             {
                 char* title = (self.active_modal == 3) ? "Open File" : "Save File As";

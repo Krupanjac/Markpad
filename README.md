@@ -34,7 +34,7 @@ Markpad is a lightweight Markdown editor built using the [C3 programming languag
 - **C3 Compiler**: Latest stable version.
 - **Dependencies**: 
   - `Raylib 5.5` (bindings included).
-  - `libcmark` (dynamic link required).
+  - `libcmark` (bundled source, static build required).
 
 ## Building and Running
 
@@ -44,7 +44,13 @@ Markpad is a lightweight Markdown editor built using the [C3 programming languag
    cd Markpad
    ```
 
-2. **Build the project**:
+2. **Build Dependencies (First Time Only)**:
+   Build the static `libcmark` library using the provided script.
+   ```bash
+   ./scripts/build_cmark.sh
+   ```
+
+3. **Build the project**:
    Use the C3 compiler to build the executable.
    ```bash
    c3c build

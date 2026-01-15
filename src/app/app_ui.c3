@@ -68,9 +68,18 @@ fn bool App.handle_menu_interaction(App *self)
 			return true;
 		}
 	}
+	else if (self.active_menu == 4) // Help
+	{
+		if (mx >= 160 && mx <= 360 && my > 30 && my < 60)
+		{
+			self.active_menu = 0;
+			self.active_modal = 6; // About
+			return true; 
+		}
+	}
 	
 	if (my <= 30)
-	{
+	{	
 		if (mx >= 10 && mx <= 55) {
 			self.active_menu = (self.active_menu == 1) ? 0 : 1;
 		} else if (mx >= 60 && mx <= 105) {
@@ -83,6 +92,7 @@ fn bool App.handle_menu_interaction(App *self)
 			self.active_menu = 0; 
 		}
 		return true; 
+		
 	}
 	
 	if (self.active_menu > 0) {
@@ -95,6 +105,35 @@ fn bool App.handle_menu_interaction(App *self)
 fn void App.update_modal(App *self)
 {
 	editor::FileBrowser* browser = &self.browser;
+
+	if (self.active_modal == 6) // About Modal
+	{
+		if (rl::is_key_pressed(rl::RLKeyboardKey.ESCAPE) || 
+			rl::is_key_pressed(rl::RLKeyboardKey.ENTER) || 
+			rl::is_key_pressed(rl::RLKeyboardKey.KP_ENTER)) 
+		{
+			self.active_modal = 0;
+		}
+
+		if (rl::is_mouse_button_pressed(rl::RLMouseButton.LEFT))
+		{
+			int sw = rl::get_screen_width();
+			int sh = rl::get_screen_height();
+			int w = 500;
+			int h = 400; // Adjusted for About content
+			int x = (sw / 2) - (w / 2);
+			int y = (sh / 2) - (h / 2);
+			
+			int mx = rl::get_mouse_x();
+			int my = rl::get_mouse_y();
+			
+			if (mx < x || mx > x + w || my < y || my > y + h)
+			{
+				self.active_modal = 0;
+			}
+		}
+		return;
+	}
 
 	if (self.active_modal == 5)
 	{
